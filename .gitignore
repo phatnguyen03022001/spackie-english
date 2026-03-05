@@ -3,6 +3,7 @@ node_modules/
 dist/
 build/
 out/
+en-vi/
 .pnp
 .pnp.*
 .yarn/*
@@ -20,37 +21,31 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# --- NEXT.JS (Thư mục client) ---
+# --- NEXT.JS (Client Directory) ---
 .next/
 next-env.d.ts
 *.tsbuildinfo
 .vercel
 
-# --- NESTJS (Thư mục server) ---
-# Chỉ ignore folder kết quả test, KHÔNG ignore folder "test/" vì chứa code .spec.ts
+# --- NESTJS (Server Directory) ---
+# Ignore test output only; DO NOT ignore "test/" folder as it contains .spec.ts files
 coverage/
 .nyc_output/
 test-results/
+test/
 pids
 *.pid
 *.seed
 *.pid.lock
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# --- DỮ LIỆU TỪ ĐIỂN (Thư mục en-vi) ---
-# Chỉ ignore các file dữ liệu thô cực nặng, GIỮ LẠI convert.js và en_vi.json
-en_vi/
-en-vi/*.dict
-en-vi/*.idx
-en-vi/*.ifo
-
-# --- MÔI TRƯỜNG (Security) ---
+# --- ENVIRONMENT & SECURITY ---
 .env
 .env.*
 !.env.example
 .env.local
 
-# --- IDE & HỆ ĐIỀU HÀNH ---
+# --- IDE & OS ---
 .DS_Store
 Thumbs.db
 .idea/
@@ -60,7 +55,7 @@ Thumbs.db
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# --- TEMP ---
+# --- TEMP & CERTIFICATES ---
 .temp/
 .tmp/
 *.pem
