@@ -1,9 +1,9 @@
-# --- COMMONS  (Dependencies & Logs) ---
+# --- PHẦN CHUNG (Dependencies & Logs) ---
 node_modules/
-/dist
-/build
-/out
-/en-vi
+dist/
+build/
+out/
+en-vi/
 .pnp
 .pnp.*
 .yarn/*
@@ -12,7 +12,7 @@ node_modules/
 !.yarn/releases
 !.yarn/versions
 
-# LOGS
+# Logs
 logs
 *.log
 npm-debug.log*
@@ -22,15 +22,15 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # --- NEXT.JS DETAILS ---
-/.next/
+.next/
 next-env.d.ts
 *.tsbuildinfo
 .vercel
 
 # --- NESTJS DETAILS ---
-/coverage
-/.nyc_output
-/test-results
+coverage/
+.nyc_output/
+test-results/
 pids
 *.pid
 *.seed
@@ -41,23 +41,13 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .env
 .env.*
 !.env.example
+# Lưu ý: .env.local thường dùng cho Next.js, nên giữ ignore nó
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
-# --- IDE & WINDOWS ---
+# --- IDE & OS ---
 .DS_Store
 Thumbs.db
 .idea/
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-
-# VSCode 
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
