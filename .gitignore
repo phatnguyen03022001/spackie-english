@@ -39,7 +39,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # --- DỮ LIỆU TỪ ĐIỂN (Thư mục en-vi) ---
 # Chỉ ignore các file dữ liệu thô cực nặng, GIỮ LẠI convert.js và en_vi.json
-en_vi/*
+en_vi/
 en-vi/*.dict
 en-vi/*.idx
 en-vi/*.ifo
