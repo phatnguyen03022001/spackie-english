@@ -1,9 +1,8 @@
-# --- PHẦN CHUNG (Dependencies & Logs) ---
+# --- COMMON (Dependencies & Logs) ---
 node_modules/
 dist/
 build/
 out/
-en-vi/
 .pnp
 .pnp.*
 .yarn/*
@@ -21,16 +20,14 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# --- NEXT.JS DETAILS ---
+# --- NEXT.JS (Thư mục client) ---
 .next/
 next-env.d.ts
 *.tsbuildinfo
 .vercel
 
-# --- NESTJS DETAILS ---
-dist/
-test-results/
-test/
+# --- NESTJS (Thư mục server) ---
+# Chỉ ignore folder kết quả test, KHÔNG ignore folder "test/" vì chứa code .spec.ts
 coverage/
 .nyc_output/
 test-results/
@@ -40,14 +37,20 @@ pids
 *.pid.lock
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# --- .ENV (Environment Variables) ---
+# --- DỮ LIỆU TỪ ĐIỂN (Thư mục en-vi) ---
+# Chỉ ignore các file dữ liệu thô cực nặng, GIỮ LẠI convert.js và en_vi.json
+en_vi/*
+en-vi/*.dict
+en-vi/*.idx
+en-vi/*.ifo
+
+# --- MÔI TRƯỜNG (Security) ---
 .env
 .env.*
 !.env.example
-# Lưu ý: .env.local thường dùng cho Next.js, nên giữ ignore nó
 .env.local
 
-# --- IDE & OS ---
+# --- IDE & HỆ ĐIỀU HÀNH ---
 .DS_Store
 Thumbs.db
 .idea/
