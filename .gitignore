@@ -28,6 +28,9 @@ next-env.d.ts
 .vercel
 
 # --- NESTJS DETAILS ---
+dist/
+test-results/
+test/
 coverage/
 .nyc_output/
 test-results/
