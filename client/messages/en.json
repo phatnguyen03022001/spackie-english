@@ -1,0 +1,35 @@
+{
+  "Home": {
+    "hero": {
+      "badge": "Standard International Program 2026",
+      "title": "Master English",
+      "subtitle": "Breakthrough Career",
+      "description": "Smart learning platform using AI to help you communicate fluently in 3 months. Learn anytime, anywhere with personalized paths.",
+      "ctaStart": "Start Learning Now",
+      "ctaFree": "Free Trial"
+    },
+    "stats": {
+      "students": "Students",
+      "courses": "Courses",
+      "teachers": "Teachers",
+      "awards": "Awards"
+    },
+    "courses": {
+      "heading": "Featured Courses",
+      "subheading": "Choose the right path for your goals",
+      "viewAll": "View all",
+      "description": "Learn with native teachers and receive a certificate after the course.",
+      "enroll": "Enroll Now",
+      "items": {
+        "ielts": "IELTS Masterclass",
+        "business": "English for Business",
+        "communication": "Communication Pro"
+      }
+    },
+    "cta": {
+      "title": "Are you ready to level up?",
+      "description": "Join a community of 50,000+ students progressing every day. 30% discount for new students this month.",
+      "button": "Claim Discount"
+    }
+  }
+}

@@ -20,17 +20,20 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@shared/*": ["../shared/*"]
-    }
+      "@shared/*": ["../shared/*"]   
+    },
+    "rootDirs": [".", "../shared"]
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
+    "types/**/*.d.ts",
+    "**/*.css",
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts",
     "../shared/**/*.ts"
-  ],
+, "postcss.config.mjs"  ],
   "exclude": ["node_modules"]
 }

@@ -1,5 +1,9 @@
 # spackie-english
 
+
+## get structure
+tree -I "node_modules|.next|dist|.git"
+
 ## git
 
 git remote add origin git@github.com:phatnguyen03022001/spackie-english.git

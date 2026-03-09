@@ -1,0 +1,35 @@
+{
+  "Home": {
+    "hero": {
+      "badge": "Chương trình học chuẩn quốc tế 2026",
+      "title": "Chinh phục Tiếng Anh",
+      "subtitle": "Đột phá sự nghiệp",
+      "description": "Nền tảng học tập thông minh sử dụng AI giúp bạn giao tiếp thành thạo chỉ sau 3 tháng. Học mọi lúc, mọi nơi với lộ trình cá nhân hóa.",
+      "ctaStart": "Bắt đầu học ngay",
+      "ctaFree": "Dùng thử miễn phí"
+    },
+    "stats": {
+      "students": "Học viên",
+      "courses": "Khóa học",
+      "teachers": "Giảng viên",
+      "awards": "Giải thưởng"
+    },
+    "courses": {
+      "heading": "Khóa học nổi bật",
+      "subheading": "Lựa chọn lộ trình phù hợp với mục tiêu của bạn",
+      "viewAll": "Xem tất cả",
+      "description": "Học cùng giảng viên bản xứ và nhận chứng chỉ sau khóa học.",
+      "enroll": "Đăng ký",
+      "items": {
+        "ielts": "IELTS Masterclass",
+        "business": "English for Business",
+        "communication": "Communication Pro"
+      }
+    },
+    "cta": {
+      "title": "Bạn đã sẵn sàng nâng tầm bản thân?",
+      "description": "Tham gia cùng cộng đồng hơn 50.000 học viên đang tiến bộ mỗi ngày. Ưu đãi giảm 30% cho học viên mới trong tháng này.",
+      "button": "Nhận ưu đãi ngay"
+    }
+  }
+}
