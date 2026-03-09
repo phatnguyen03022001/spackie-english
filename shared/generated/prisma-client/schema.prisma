@@ -7,15 +7,24 @@ generator client {
   output   = "../../shared/generated/prisma-client"
 }
 
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
 // --- NGƯỜI DÙNG ---
 model User {
   id          String         @id @default(auto()) @map("_id") @db.ObjectId
   email       String         @unique
   name        String?
+  role        String
   progress    UserProgress[]
   flashcards  Flashcard[]
   testResults TestResult[]
   createdAt   DateTime       @default(now())
+
+  @@index([role])
 }
 
 // --- TỪ VỰNG (ANKI STYLE) ---

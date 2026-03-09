@@ -1,30 +1,51 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import { context, trace } from '@opentelemetry/api';
-import { AppService } from './app.service';
+
+import config from './config';
+import { validate } from './config/validation';
+
 import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
-    LoggerModule.forRoot({
-      pinoHttp: {
-        level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: config,
+      validate,
+    }),
 
-        mixin() {
-          const span = trace.getSpan(context.active());
-          if (!span) return {};
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        pinoHttp: {
+          level:
+            configService.get<string>('app.env') === 'production'
+              ? 'info'
+              : 'debug',
 
-          const { traceId, spanId } = span.spanContext();
-          return { trace_id: traceId, span_id: spanId };
+          mixin() {
+            const span = trace.getSpan(context.active());
+            if (!span) return {};
+
+            const { traceId, spanId } = span.spanContext();
+            return {
+              trace_id: traceId,
+              span_id: spanId,
+            };
+          },
+
+          transport:
+            configService.get<string>('app.env') !== 'production'
+              ? { target: 'pino-pretty' }
+              : { target: 'pino-opentelemetry-transport' },
         },
-
-        transport:
-          process.env.NODE_ENV !== 'production'
-            ? { target: 'pino-pretty' }
-            : { target: 'pino-opentelemetry-transport' },
-      },
+      }),
     }),
   ],
+
   controllers: [AppController],
   providers: [AppService],
 })

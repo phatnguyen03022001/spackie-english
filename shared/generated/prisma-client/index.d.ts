@@ -68,7 +68,16 @@ export type UserProgress = $Result.DefaultSelection<Prisma.$UserProgressPayload>
  * Enums
  */
 export namespace $Enums {
-  export const ExamType: {
+  export const UserRole: {
+  STUDENT: 'STUDENT',
+  TEACHER: 'TEACHER',
+  ADMIN: 'ADMIN'
+};
+
+export type UserRole = (typeof UserRole)[keyof typeof UserRole]
+
+
+export const ExamType: {
   TOEIC: 'TOEIC',
   IELTS: 'IELTS'
 };
@@ -76,6 +85,10 @@ export namespace $Enums {
 export type ExamType = (typeof ExamType)[keyof typeof ExamType]
 
 }
+
+export type UserRole = $Enums.UserRole
+
+export const UserRole: typeof $Enums.UserRole
 
 export type ExamType = $Enums.ExamType
 
@@ -1642,6 +1655,7 @@ export namespace Prisma {
     id: string | null
     email: string | null
     name: string | null
+    role: string | null
     createdAt: Date | null
   }
 
@@ -1649,6 +1663,7 @@ export namespace Prisma {
     id: string | null
     email: string | null
     name: string | null
+    role: string | null
     createdAt: Date | null
   }
 
@@ -1656,6 +1671,7 @@ export namespace Prisma {
     id: number
     email: number
     name: number
+    role: number
     createdAt: number
     _all: number
   }
@@ -1665,6 +1681,7 @@ export namespace Prisma {
     id?: true
     email?: true
     name?: true
+    role?: true
     createdAt?: true
   }
 
@@ -1672,6 +1689,7 @@ export namespace Prisma {
     id?: true
     email?: true
     name?: true
+    role?: true
     createdAt?: true
   }
 
@@ -1679,6 +1697,7 @@ export namespace Prisma {
     id?: true
     email?: true
     name?: true
+    role?: true
     createdAt?: true
     _all?: true
   }
@@ -1759,6 +1778,7 @@ export namespace Prisma {
     id: string
     email: string
     name: string | null
+    role: string
     createdAt: Date
     _count: UserCountAggregateOutputType | null
     _min: UserMinAggregateOutputType | null
@@ -1783,6 +1803,7 @@ export namespace Prisma {
     id?: boolean
     email?: boolean
     name?: boolean
+    role?: boolean
     createdAt?: boolean
     progress?: boolean | User$progressArgs<ExtArgs>
     flashcards?: boolean | User$flashcardsArgs<ExtArgs>
@@ -1796,10 +1817,11 @@ export namespace Prisma {
     id?: boolean
     email?: boolean
     name?: boolean
+    role?: boolean
     createdAt?: boolean
   }
 
-  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "name" | "createdAt", ExtArgs["result"]["user"]>
+  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "name" | "role" | "createdAt", ExtArgs["result"]["user"]>
   export type UserInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     progress?: boolean | User$progressArgs<ExtArgs>
     flashcards?: boolean | User$flashcardsArgs<ExtArgs>
@@ -1818,6 +1840,7 @@ export namespace Prisma {
       id: string
       email: string
       name: string | null
+      role: string
       createdAt: Date
     }, ExtArgs["result"]["user"]>
     composites: {}
@@ -2217,6 +2240,7 @@ export namespace Prisma {
     readonly id: FieldRef<"User", 'String'>
     readonly email: FieldRef<"User", 'String'>
     readonly name: FieldRef<"User", 'String'>
+    readonly role: FieldRef<"User", 'String'>
     readonly createdAt: FieldRef<"User", 'DateTime'>
   }
     
@@ -7783,6 +7807,7 @@ export namespace Prisma {
     id: 'id',
     email: 'email',
     name: 'name',
+    role: 'role',
     createdAt: 'createdAt'
   };
 
@@ -7957,6 +7982,7 @@ export namespace Prisma {
     id?: StringFilter<"User"> | string
     email?: StringFilter<"User"> | string
     name?: StringNullableFilter<"User"> | string | null
+    role?: StringFilter<"User"> | string
     createdAt?: DateTimeFilter<"User"> | Date | string
     progress?: UserProgressListRelationFilter
     flashcards?: FlashcardListRelationFilter
@@ -7967,6 +7993,7 @@ export namespace Prisma {
     id?: SortOrder
     email?: SortOrder
     name?: SortOrder
+    role?: SortOrder
     createdAt?: SortOrder
     progress?: UserProgressOrderByRelationAggregateInput
     flashcards?: FlashcardOrderByRelationAggregateInput
@@ -7980,6 +8007,7 @@ export namespace Prisma {
     OR?: UserWhereInput[]
     NOT?: UserWhereInput | UserWhereInput[]
     name?: StringNullableFilter<"User"> | string | null
+    role?: StringFilter<"User"> | string
     createdAt?: DateTimeFilter<"User"> | Date | string
     progress?: UserProgressListRelationFilter
     flashcards?: FlashcardListRelationFilter
@@ -7990,6 +8018,7 @@ export namespace Prisma {
     id?: SortOrder
     email?: SortOrder
     name?: SortOrder
+    role?: SortOrder
     createdAt?: SortOrder
     _count?: UserCountOrderByAggregateInput
     _max?: UserMaxOrderByAggregateInput
@@ -8003,6 +8032,7 @@ export namespace Prisma {
     id?: StringWithAggregatesFilter<"User"> | string
     email?: StringWithAggregatesFilter<"User"> | string
     name?: StringNullableWithAggregatesFilter<"User"> | string | null
+    role?: StringWithAggregatesFilter<"User"> | string
     createdAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
   }
 
@@ -8324,6 +8354,7 @@ export namespace Prisma {
     id?: string
     email: string
     name?: string | null
+    role: string
     createdAt?: Date | string
     progress?: UserProgressCreateNestedManyWithoutUserInput
     flashcards?: FlashcardCreateNestedManyWithoutUserInput
@@ -8334,6 +8365,7 @@ export namespace Prisma {
     id?: string
     email: string
     name?: string | null
+    role: string
     createdAt?: Date | string
     progress?: UserProgressUncheckedCreateNestedManyWithoutUserInput
     flashcards?: FlashcardUncheckedCreateNestedManyWithoutUserInput
@@ -8343,6 +8375,7 @@ export namespace Prisma {
   export type UserUpdateInput = {
     email?: StringFieldUpdateOperationsInput | string
     name?: NullableStringFieldUpdateOperationsInput | string | null
+    role?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     progress?: UserProgressUpdateManyWithoutUserNestedInput
     flashcards?: FlashcardUpdateManyWithoutUserNestedInput
@@ -8352,6 +8385,7 @@ export namespace Prisma {
   export type UserUncheckedUpdateInput = {
     email?: StringFieldUpdateOperationsInput | string
     name?: NullableStringFieldUpdateOperationsInput | string | null
+    role?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     progress?: UserProgressUncheckedUpdateManyWithoutUserNestedInput
     flashcards?: FlashcardUncheckedUpdateManyWithoutUserNestedInput
@@ -8362,18 +8396,21 @@ export namespace Prisma {
     id?: string
     email: string
     name?: string | null
+    role: string
     createdAt?: Date | string
   }
 
   export type UserUpdateManyMutationInput = {
     email?: StringFieldUpdateOperationsInput | string
     name?: NullableStringFieldUpdateOperationsInput | string | null
+    role?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type UserUncheckedUpdateManyInput = {
     email?: StringFieldUpdateOperationsInput | string
     name?: NullableStringFieldUpdateOperationsInput | string | null
+    role?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -8773,6 +8810,7 @@ export namespace Prisma {
     id?: SortOrder
     email?: SortOrder
     name?: SortOrder
+    role?: SortOrder
     createdAt?: SortOrder
   }
 
@@ -8780,6 +8818,7 @@ export namespace Prisma {
     id?: SortOrder
     email?: SortOrder
     name?: SortOrder
+    role?: SortOrder
     createdAt?: SortOrder
   }
 
@@ -8787,6 +8826,7 @@ export namespace Prisma {
     id?: SortOrder
     email?: SortOrder
     name?: SortOrder
+    role?: SortOrder
     createdAt?: SortOrder
   }
 
@@ -9829,6 +9869,7 @@ export namespace Prisma {
     id?: string
     email: string
     name?: string | null
+    role: string
     createdAt?: Date | string
     progress?: UserProgressCreateNestedManyWithoutUserInput
     testResults?: TestResultCreateNestedManyWithoutUserInput
@@ -9838,6 +9879,7 @@ export namespace Prisma {
     id?: string
     email: string
     name?: string | null
+    role: string
     createdAt?: Date | string
     progress?: UserProgressUncheckedCreateNestedManyWithoutUserInput
     testResults?: TestResultUncheckedCreateNestedManyWithoutUserInput
@@ -9862,6 +9904,7 @@ export namespace Prisma {
   export type UserUpdateWithoutFlashcardsInput = {
     email?: StringFieldUpdateOperationsInput | string
     name?: NullableStringFieldUpdateOperationsInput | string | null
+    role?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     progress?: UserProgressUpdateManyWithoutUserNestedInput
     testResults?: TestResultUpdateManyWithoutUserNestedInput
@@ -9870,6 +9913,7 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutFlashcardsInput = {
     email?: StringFieldUpdateOperationsInput | string
     name?: NullableStringFieldUpdateOperationsInput | string | null
+    role?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     progress?: UserProgressUncheckedUpdateManyWithoutUserNestedInput
     testResults?: TestResultUncheckedUpdateManyWithoutUserNestedInput
@@ -9910,6 +9954,7 @@ export namespace Prisma {
     id?: string
     email: string
     name?: string | null
+    role: string
     createdAt?: Date | string
     progress?: UserProgressCreateNestedManyWithoutUserInput
     flashcards?: FlashcardCreateNestedManyWithoutUserInput
@@ -9919,6 +9964,7 @@ export namespace Prisma {
     id?: string
     email: string
     name?: string | null
+    role: string
     createdAt?: Date | string
     progress?: UserProgressUncheckedCreateNestedManyWithoutUserInput
     flashcards?: FlashcardUncheckedCreateNestedManyWithoutUserInput
@@ -9952,6 +9998,7 @@ export namespace Prisma {
   export type UserUpdateWithoutTestResultsInput = {
     email?: StringFieldUpdateOperationsInput | string
     name?: NullableStringFieldUpdateOperationsInput | string | null
+    role?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     progress?: UserProgressUpdateManyWithoutUserNestedInput
     flashcards?: FlashcardUpdateManyWithoutUserNestedInput
@@ -9960,6 +10007,7 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutTestResultsInput = {
     email?: StringFieldUpdateOperationsInput | string
     name?: NullableStringFieldUpdateOperationsInput | string | null
+    role?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     progress?: UserProgressUncheckedUpdateManyWithoutUserNestedInput
     flashcards?: FlashcardUncheckedUpdateManyWithoutUserNestedInput
@@ -9969,6 +10017,7 @@ export namespace Prisma {
     id?: string
     email: string
     name?: string | null
+    role: string
     createdAt?: Date | string
     flashcards?: FlashcardCreateNestedManyWithoutUserInput
     testResults?: TestResultCreateNestedManyWithoutUserInput
@@ -9978,6 +10027,7 @@ export namespace Prisma {
     id?: string
     email: string
     name?: string | null
+    role: string
     createdAt?: Date | string
     flashcards?: FlashcardUncheckedCreateNestedManyWithoutUserInput
     testResults?: TestResultUncheckedCreateNestedManyWithoutUserInput
@@ -10002,6 +10052,7 @@ export namespace Prisma {
   export type UserUpdateWithoutProgressInput = {
     email?: StringFieldUpdateOperationsInput | string
     name?: NullableStringFieldUpdateOperationsInput | string | null
+    role?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     flashcards?: FlashcardUpdateManyWithoutUserNestedInput
     testResults?: TestResultUpdateManyWithoutUserNestedInput
@@ -10010,6 +10061,7 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutProgressInput = {
     email?: StringFieldUpdateOperationsInput | string
     name?: NullableStringFieldUpdateOperationsInput | string | null
+    role?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     flashcards?: FlashcardUncheckedUpdateManyWithoutUserNestedInput
     testResults?: TestResultUncheckedUpdateManyWithoutUserNestedInput

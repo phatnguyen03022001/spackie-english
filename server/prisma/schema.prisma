@@ -7,61 +7,62 @@ generator client {
   output   = "../../shared/generated/prisma-client"
 }
 
-// --- NGƯỜI DÙNG ---
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
 model User {
   id          String         @id @default(auto()) @map("_id") @db.ObjectId
   email       String         @unique
   name        String?
+  role        String
   progress    UserProgress[]
   flashcards  Flashcard[]
   testResults TestResult[]
   createdAt   DateTime       @default(now())
 }
 
-// --- TỪ VỰNG (ANKI STYLE) ---
 model Flashcard {
-  id         String  @id @default(auto()) @map("_id") @db.ObjectId
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
   word       String
   definition String
   example    String?
   audioUrl   String?
-  userId     String  @db.ObjectId
-  user       User    @relation(fields: [userId], references: [id])
-
-  // Thuật toán SM-2
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id])
   interval   Int      @default(0)
   repetition Int      @default(0)
   easeFactor Float    @default(2.5)
   nextReview DateTime @default(now())
+  createdAt  DateTime @default(now())
 
-  createdAt DateTime @default(now())
+  @@index([userId])
 }
 
-// --- LUYỆN NGHE (PAROTO STYLE) ---
 model ListeningLesson {
   id         String       @id @default(auto()) @map("_id") @db.ObjectId
   title      String
   audioUrl   String
-  transcript Transcript[] // Nhúng trực tiếp mảng transcript vào lesson
+  transcript Transcript[]
   level      String
   category   String
-  questions  Question[] // Nhúng mảng câu hỏi kiểm tra ngắn
+  questions  Question[]
 }
 
-// Kiểu dữ liệu nhúng (Embedded Type)
 type Transcript {
   time        Float
   text        String
   translation String?
 }
 
-// --- LUYỆN ĐỀ (TOEIC / IELTS) ---
 model Exam {
   id       String    @id @default(auto()) @map("_id") @db.ObjectId
   title    String
   type     ExamType
   duration Int
-  sections Section[] // Với MongoDB, nhúng Section vào Exam sẽ giúp truy vấn nhanh hơn rất nhiều
+  sections Section[]
 }
 
 enum ExamType {
@@ -71,7 +72,7 @@ enum ExamType {
 
 type Section {
   title     String
-  questions Question[] // Nhúng toàn bộ câu hỏi vào Section
+  questions Question[]
 }
 
 type Question {
@@ -80,19 +81,17 @@ type Question {
   imagePath     String?
   audioPath     String?
   passage       String?
-  options       String[] // MongoDB lưu mảng String trực tiếp rất tốt
+  options       String[]
   correctAnswer String
   explanation   String?
 }
 
-// --- KẾT QUẢ VÀ TIẾN ĐỘ ---
 model TestResult {
   id        String       @id @default(auto()) @map("_id") @db.ObjectId
   userId    String       @db.ObjectId
   user      User         @relation(fields: [userId], references: [id])
   examId    String       @db.ObjectId
   score     Float
-  // Lưu chi tiết từng câu user làm để xem lại (Nhúng để tránh query nhiều)
   answers   UserAnswer[]
   createdAt DateTime     @default(now())
 }

@@ -1,16 +1,24 @@
 import './instrument';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { AppModule } from './app.module';
+import { ConfigService } from '@nestjs/config';
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
+
+import { AppModule } from './app.module';
+import { ResponseInterceptor } from '@/common/interceptors/response.interceptor';
+import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-  // PINO
   app.useLogger(app.get(Logger));
 
-  app.useGlobalInterceptors(new LoggerErrorInterceptor());
+  app.useGlobalInterceptors(
+    new ResponseInterceptor(),
+    new LoggerErrorInterceptor(),
+  );
+
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -20,6 +28,9 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(process.env.PORT ?? 8000);
+  const config = app.get(ConfigService);
+
+  await app.listen(config.get<number>('app.port'));
 }
+
 void bootstrap();
