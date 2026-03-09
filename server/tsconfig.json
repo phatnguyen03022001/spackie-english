@@ -5,22 +5,13 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@shared/*": [
-        "../shared/*"
-      ],
-      "@common/*": [
-        "./src/common/*"
-      ]
+      "@/*": ["./src/*"],
+      "@shared/*": ["../shared/*"],
+      "@common/*": ["./src/common/*"]
     },
     "noEmit": false,
     "strict": false,
-    "types": [
-      "node",
-      "multer"
-    ],
+    "types": ["node", "multer"],
     "esModuleInterop": true,
     "isolatedModules": true,
     "declaration": true,
@@ -30,16 +21,15 @@
     "sourceMap": true,
     "incremental": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "src/**/*.ts",
-    "types/**/*.d.ts",
-    "prisma.config.ts"
+    "types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "prisma/generated",
+    "prisma/generated"
   ]
 }

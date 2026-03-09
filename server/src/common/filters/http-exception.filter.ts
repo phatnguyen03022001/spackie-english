@@ -1,37 +1,50 @@
+// src/common/filters/http-exception.filter.ts
+
 import {
   ArgumentsHost,
   Catch,
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost) {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
+  catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
 
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status =
+    const status: HttpStatus =
       exception instanceof HttpException
-        ? exception.getStatus()
+        ? (exception.getStatus() as HttpStatus)
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const rawMessage =
+    const rawMessage: unknown =
       exception instanceof HttpException
         ? exception.getResponse()
         : 'Internal server error';
 
-    const formattedMessage = this.formatMessage(rawMessage);
+    const message = this.formatMessage(rawMessage);
+
+    // log server error
+    if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(
+        exception instanceof Error ? exception.stack : exception,
+      );
+    }
 
     response.status(status).json({
       success: false,
       statusCode: status,
+      message,
+      data: null,
       path: request.originalUrl,
-      message: formattedMessage,
       timestamp: new Date().toISOString(),
     });
   }
@@ -42,53 +55,25 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     if (Array.isArray(rawMessage)) {
-      return rawMessage.map((item) => this.toStringValue(item));
+      return rawMessage
+        .filter((msg): msg is string => typeof msg === 'string')
+        .map((msg) => msg);
     }
 
     if (rawMessage && typeof rawMessage === 'object') {
-      if ('message' in rawMessage) {
-        const msg = (rawMessage as { message?: unknown }).message;
+      const obj = rawMessage as { message?: unknown };
 
-        if (Array.isArray(msg)) {
-          return msg.map((item) => this.toStringValue(item));
-        }
-
-        if (msg !== undefined) {
-          return [this.toStringValue(msg)];
-        }
+      if (Array.isArray(obj.message)) {
+        return obj.message.filter(
+          (msg): msg is string => typeof msg === 'string',
+        );
       }
 
-      return [JSON.stringify(rawMessage)];
-    }
-
-    return [this.toStringValue(rawMessage)];
-  }
-
-  private toStringValue(value: unknown): string {
-    if (value === null || value === undefined) {
-      return '';
-    }
-
-    if (typeof value === 'string') {
-      return value;
-    }
-
-    if (
-      typeof value === 'number' ||
-      typeof value === 'boolean' ||
-      typeof value === 'bigint'
-    ) {
-      return value.toString();
-    }
-
-    if (typeof value === 'object') {
-      try {
-        return JSON.stringify(value);
-      } catch {
-        return 'Object';
+      if (typeof obj.message === 'string') {
+        return [obj.message];
       }
     }
 
-    return '';
+    return ['Internal server error'];
   }
 }

@@ -39,6 +39,7 @@ class EnvSchema {
 
   @IsBoolean()
   SWAGGER_ENABLE: boolean;
+  enableImplicitConversion: true;
 
   @IsString()
   SWAGGER_PATH: string;
@@ -65,7 +66,11 @@ export function validate(config: Record<string, unknown>) {
   const errors = validateSync(validated, { skipMissingProperties: false });
 
   if (errors.length) {
-    throw new Error(errors.toString());
+    const messages = errors
+      .map((error) => Object.values(error.constraints ?? {}).join(', '))
+      .join('; ');
+
+    throw new Error(`Config validation error: ${messages}`);
   }
 
   return validated;

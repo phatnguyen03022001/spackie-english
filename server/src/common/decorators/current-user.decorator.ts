@@ -14,9 +14,6 @@ export const CurrentUser = createParamDecorator(
     if (!user) {
       return null;
     }
-
-    // Nếu data được truyền vào (ví dụ: @CurrentUser('id')), trả về trường đó
-    // Nếu không, trả về toàn bộ object user
     return data ? user[data] : user;
   },
 );

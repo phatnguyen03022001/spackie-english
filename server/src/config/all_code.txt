@@ -1,0 +1,192 @@
+FILE: ./validation.ts
+---
+import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
+
+class EnvSchema {
+  @IsString()
+  NODE_ENV: string;
+
+  @IsString()
+  APP_NAME: string;
+
+  @IsNumber()
+  APP_PORT: number;
+
+  @IsString()
+  API_PREFIX: string;
+
+  @IsOptional()
+  @IsString()
+  FRONTEND_URL?: string;
+
+  @IsString()
+  DATABASE_URL: string;
+
+  @IsString()
+  JWT_SECRET: string;
+
+  @IsString()
+  JWT_EXPIRES_IN: string;
+
+  @IsString()
+  JWT_REFRESH_SECRET: string;
+
+  @IsString()
+  JWT_REFRESH_EXPIRES_IN: string;
+
+  @IsNumber()
+  BCRYPT_SALT_ROUNDS: number;
+
+  @IsBoolean()
+  SWAGGER_ENABLE: boolean;
+
+  @IsString()
+  SWAGGER_PATH: string;
+
+  @IsString()
+  SWAGGER_TITLE: string;
+
+  @IsString()
+  SWAGGER_DESCRIPTION: string;
+
+  @IsString()
+  SWAGGER_VERSION: string;
+
+  @IsOptional()
+  @IsString()
+  CORS_ORIGIN?: string;
+}
+
+export function validate(config: Record<string, unknown>) {
+  const validated = plainToInstance(EnvSchema, config, {
+    enableImplicitConversion: true,
+  });
+
+  const errors = validateSync(validated, { skipMissingProperties: false });
+
+  if (errors.length) {
+    throw new Error(errors.toString());
+  }
+
+  return validated;
+}
+-e 
+
+
+FILE: ./database.config.ts
+---
+export default () => ({
+  database: {
+    url: process.env.DATABASE_URL,
+  },
+});
+-e 
+
+
+FILE: ./app.config.ts
+---
+export default () => ({
+  app: {
+    name: process.env.APP_NAME,
+    port: Number(process.env.APP_PORT) || 8000,
+    prefix: process.env.API_PREFIX || 'api',
+    env: process.env.NODE_ENV,
+  },
+});
+-e 
+
+
+FILE: ./jwt.config.ts
+---
+export default () => ({
+  jwt: {
+    secret: process.env.JWT_SECRET,
+    expiresIn: process.env.JWT_EXPIRES_IN,
+
+    refreshSecret: process.env.JWT_REFRESH_SECRET,
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+
+    saltRounds: Number(process.env.BCRYPT_SALT_ROUNDS) || 10,
+  },
+});
+-e 
+
+
+FILE: ./otel.config.ts
+---
+export default () => ({
+  otel: {
+    serviceName: process.env.OTEL_SERVICE_NAME,
+    endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    headers: process.env.OTEL_EXPORTER_OTLP_HEADERS,
+    logLevel: process.env.OTEL_LOG_LEVEL,
+  },
+});
+-e 
+
+
+FILE: ./index.ts
+---
+import app from './app.config';
+import database from './database.config';
+import jwt from './jwt.config';
+import swagger from './swagger.config';
+import cors from './cors.config';
+import cloudinary from './cloudinary.config';
+import mail from './mail.config';
+import otel from './otel.config';
+
+export default [app, database, jwt, swagger, cors, cloudinary, mail, otel];
+-e 
+
+
+FILE: ./cors.config.ts
+---
+export default () => ({
+  cors: {
+    origin: process.env.CORS_ORIGIN?.split(',') ?? '*',
+  },
+});
+-e 
+
+
+FILE: ./swagger.config.ts
+---
+export default () => ({
+  swagger: {
+    enabled: process.env.SWAGGER_ENABLE === 'true',
+    path: process.env.SWAGGER_PATH,
+    title: process.env.SWAGGER_TITLE,
+    description: process.env.SWAGGER_DESCRIPTION,
+    version: process.env.SWAGGER_VERSION,
+  },
+});
+-e 
+
+
+FILE: ./mail.config.ts
+---
+export default () => ({
+  mail: {
+    apiKey: process.env.BREVO_API_KEY,
+    from: process.env.EMAIL_FROM,
+    fromName: process.env.EMAIL_FROM_NAME,
+  },
+});
+-e 
+
+
+FILE: ./cloudinary.config.ts
+---
+export default () => ({
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+  },
+});
+-e 
+
+

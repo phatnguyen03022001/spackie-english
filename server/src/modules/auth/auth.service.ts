@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
-import { PrismaService } from '../../prisma/prisma.service';
+// import { PrismaService } from '@shared/prisma/';
 
 import {
   RegisterDto,
@@ -19,12 +19,12 @@ import {
   ForgotPasswordDto,
   VerifyOtpDto,
 } from './dto/auth.dto';
-import { MailService } from '@/modules/mail/';
+import { MailService } from '@/modules/mail/mail.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService,
+    // private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly mailService: MailService,

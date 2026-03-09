@@ -1,19 +1,37 @@
+// src/common/dto/api-response.dto.ts
+
 export class ApiResponseDto<T> {
   success: boolean;
   statusCode: number;
-  data: T;
+  message: string;
+  data: T | null;
   timestamp: string;
 
-  constructor(data: T, statusCode = 200) {
-    this.success = true;
+  constructor(
+    data: T | null,
+    message: string,
+    statusCode: number = 200,
+    success: boolean = true,
+  ) {
+    this.success = success;
     this.statusCode = statusCode;
+    this.message = message;
     this.data = data;
     this.timestamp = new Date().toISOString();
   }
-}
-export class PaginatedResponseDto<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
+
+  static success<T>(
+    data: T,
+    message: string = 'Success',
+    statusCode: number = 200,
+  ): ApiResponseDto<T> {
+    return new ApiResponseDto<T>(data, message, statusCode, true);
+  }
+
+  static error(
+    message: string = 'Error',
+    statusCode: number = 400,
+  ): ApiResponseDto<null> {
+    return new ApiResponseDto<null>(null, message, statusCode, false);
+  }
 }

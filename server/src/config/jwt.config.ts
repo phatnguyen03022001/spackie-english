@@ -6,6 +6,6 @@ export default () => ({
     refreshSecret: process.env.JWT_REFRESH_SECRET,
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
 
-    saltRounds: Number(process.env.BCRYPT_SALT_ROUNDS) || 10,
+    saltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS ?? '10', 10),
   },
 });

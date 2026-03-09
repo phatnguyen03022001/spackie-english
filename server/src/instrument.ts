@@ -4,14 +4,12 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 
 export const otelSDK = new NodeSDK({
   serviceName: process.env.OTEL_SERVICE_NAME,
-
   traceExporter: new OTLPTraceExporter({
     url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     headers: {
       Authorization: process.env.OTEL_EXPORTER_OTLP_HEADERS,
     },
   }),
-
   instrumentations: [getNodeAutoInstrumentations()],
 });
 

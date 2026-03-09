@@ -30,6 +30,12 @@ async function bootstrap() {
 
   const config = app.get(ConfigService);
 
+  app.setGlobalPrefix(config.get<string>('app.prefix') ?? 'api');
+
+  app.enableCors({
+    origin: config.get<string[]>('cors.origin'),
+  });
+
   await app.listen(config.get<number>('app.port'));
 }
 
