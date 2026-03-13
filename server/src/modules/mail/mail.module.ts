@@ -1,9 +1,10 @@
-// src/mail/mail.module.ts
-import { Module } from '@nestjs/common';
+// src/modules/mail/mail.module.ts
+import { Module, Global } from '@nestjs/common';
 import { MailService } from './mail.service';
 
+@Global()
 @Module({
   providers: [MailService],
-  exports: [MailService], // export để dùng ở các module khác
+  exports: [MailService],
 })
 export class MailModule {}

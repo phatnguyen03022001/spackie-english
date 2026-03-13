@@ -224,7 +224,7 @@ export const CurrentUser = createParamDecorator(
 FILE: ./decorators/roles.decorator.ts
 ---
 import { SetMetadata } from '@nestjs/common';
-import type { UserRole } from '@shared/generated/prisma-client';
+import type { UserRole } from '@prisma/client';
 
 export const ROLES_KEY = 'roles';
 export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);
@@ -331,7 +331,7 @@ export const GlobalValidationPipe = new ValidationPipe({
 
 FILE: ./interfaces/request-user.interface.ts
 ---
-import type { User } from '@shared/generated/prisma-client';
+import type { User } from '@prisma/client';
 
 export type RequestUser = Omit<User, 'createdAt'>;
 -e 

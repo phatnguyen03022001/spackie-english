@@ -8,6 +8,8 @@ import { validate } from './config/validation';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from '@/modules/auth/auth.module';
+import { PrismaModule } from '@/modules/prisma/prisma.module';
 
 @Module({
   imports: [
@@ -44,6 +46,8 @@ import { AppService } from './app.service';
         },
       }),
     }),
+    PrismaModule,
+    AuthModule,
   ],
 
   controllers: [AppController],

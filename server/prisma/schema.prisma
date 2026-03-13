@@ -1,10 +1,32 @@
 datasource db {
   provider = "mongodb"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../../shared/generated/prisma-client"
+}
+
+model User {
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  email      String      @unique
+  password   String
+  isVerified Boolean     @default(false)
+  name       String?
+  role       UserRole    @default(STUDENT)
+  decks      Deck[]
+  flashcards Flashcard[]
+  createdAt  DateTime    @default(now())
+}
+
+model OTP {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String
+  code      String
+  type      String
+  expiresAt DateTime
+
+  @@unique([email, type])
 }
 
 enum UserRole {
@@ -13,100 +35,59 @@ enum UserRole {
   ADMIN
 }
 
-model User {
-  id          String         @id @default(auto()) @map("_id") @db.ObjectId
-  email       String         @unique
-  name        String?
-  role        String
-  progress    UserProgress[]
+model Deck {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  isPublic    Boolean     @default(false)
+  userId      String      @db.ObjectId
+  user        User        @relation(fields: [userId], references: [id])
   flashcards  Flashcard[]
-  testResults TestResult[]
-  createdAt   DateTime       @default(now())
+  createdAt   DateTime    @default(now())
 }
 
 model Flashcard {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  word       String
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  word     String // Từ vựng (Ví dụ: "hello")
+  phonetic String? // Phiên âm
+  audioUrl String? // Link file nghe từ API
+
+  // Dữ liệu từ Dictionary API thường rất dài, ta lưu dạng JSON hoặc Type
+  meanings Meaning[]
+
+  // Quan hệ
+  userId String  @db.ObjectId
+  user   User    @relation(fields: [userId], references: [id])
+  deckId String? @db.ObjectId
+  deck   Deck?   @relation(fields: [deckId], references: [id])
+
+  // Logic Anki (SM-2 Algorithm)
+  interval   Int      @default(0) // Khoảng cách ngày ôn tập tiếp theo
+  repetition Int      @default(0) // Số lần đã ôn tập thành công liên tiếp
+  easeFactor Float    @default(2.5) // Độ dễ của thẻ (mặc định 2.5)
+  nextReview DateTime @default(now()) // Thời điểm cần học lại
+
+  status    CardStatus @default(NEW)
+  createdAt DateTime   @default(now())
+
+  @@index([userId, nextReview]) // Optimize query lấy từ cần học hôm nay
+}
+
+type Meaning {
+  partOfSpeech String // noun, verb, adjective...
+  definitions  Definition[]
+}
+
+type Definition {
   definition String
   example    String?
-  audioUrl   String?
-  userId     String   @db.ObjectId
-  user       User     @relation(fields: [userId], references: [id])
-  interval   Int      @default(0)
-  repetition Int      @default(0)
-  easeFactor Float    @default(2.5)
-  nextReview DateTime @default(now())
-  createdAt  DateTime @default(now())
-
-  @@index([userId])
+  synonyms   String[]
+  antonyms   String[]
 }
 
-model ListeningLesson {
-  id         String       @id @default(auto()) @map("_id") @db.ObjectId
-  title      String
-  audioUrl   String
-  transcript Transcript[]
-  level      String
-  category   String
-  questions  Question[]
-}
-
-type Transcript {
-  time        Float
-  text        String
-  translation String?
-}
-
-model Exam {
-  id       String    @id @default(auto()) @map("_id") @db.ObjectId
-  title    String
-  type     ExamType
-  duration Int
-  sections Section[]
-}
-
-enum ExamType {
-  TOEIC
-  IELTS
-}
-
-type Section {
-  title     String
-  questions Question[]
-}
-
-type Question {
-  order         Int
-  content       String?
-  imagePath     String?
-  audioPath     String?
-  passage       String?
-  options       String[]
-  correctAnswer String
-  explanation   String?
-}
-
-model TestResult {
-  id        String       @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String       @db.ObjectId
-  user      User         @relation(fields: [userId], references: [id])
-  examId    String       @db.ObjectId
-  score     Float
-  answers   UserAnswer[]
-  createdAt DateTime     @default(now())
-}
-
-type UserAnswer {
-  questionOrder Int
-  selected      String
-  isCorrect     Boolean
-}
-
-model UserProgress {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String   @db.ObjectId
-  user        User     @relation(fields: [userId], references: [id])
-  date        DateTime @default(now())
-  wordsLearnt Int      @default(0)
-  listenTime  Int      @default(0)
+enum CardStatus {
+  NEW
+  LEARNING
+  REVIEW
+  LAPSED
 }

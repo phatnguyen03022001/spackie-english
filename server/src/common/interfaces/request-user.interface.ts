@@ -1,3 +1,9 @@
-import type { User } from '@shared/generated/prisma-client';
+import type { User } from '@prisma/client';
 
-export type RequestUser = Omit<User, 'createdAt'>;
+export type RequestUser = {
+  id: User['id'];
+  email: User['email'];
+  role: User['role'];
+  name?: User['name'];
+  isVerified?: User['isVerified'];
+};

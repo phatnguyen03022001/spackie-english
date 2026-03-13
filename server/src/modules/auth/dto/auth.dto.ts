@@ -8,6 +8,7 @@ import {
   Length,
   MinLength,
 } from 'class-validator';
+import { UserRole } from '@prisma/client';
 
 export class SendOtpDto {
   @ApiProperty({
@@ -34,43 +35,41 @@ export class VerifyOtpDto {
 
 export class RegisterDto {
   @ApiProperty({ example: 'user@example.com' })
-  @IsEmail()
+  @IsEmail({}, { message: 'Email không hợp lệ' })
+  @IsNotEmpty({ message: 'Email không được để trống' })
   email: string;
 
   @ApiProperty({ example: 'password123', minLength: 6 })
   @IsString()
-  @MinLength(6)
+  @MinLength(6, { message: 'Mật khẩu phải từ 6 ký tự' })
+  @IsNotEmpty({ message: 'Mật khẩu không được để trống' })
   password: string;
 
-  @ApiPropertyOptional({ example: '123456' })
-  @IsOptional()
-  @IsString()
-  otp?: string;
-
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Nguyễn' })
   @IsOptional()
   @IsString()
   firstName?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Văn A' })
   @IsOptional()
   @IsString()
   lastName?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '0909123456' })
   @IsOptional()
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ enum: ['CUSTOMER', 'OWNER'], default: 'CUSTOMER' })
+  @ApiPropertyOptional({ enum: UserRole, default: UserRole.STUDENT })
   @IsOptional()
-  @IsEnum(['CUSTOMER', 'OWNER'], { message: 'Role không hợp lệ' })
-  role?: 'CUSTOMER' | 'OWNER';
+  @IsEnum(UserRole, { message: 'Role không hợp lệ' })
+  role?: UserRole;
 }
 
 export class LoginDto {
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail({}, { message: 'Email không hợp lệ' })
+  @IsNotEmpty({ message: 'Email không được để trống' })
   email: string;
 
   @ApiProperty({ example: 'password123' })
@@ -81,16 +80,19 @@ export class LoginDto {
 
 export class ForgotPasswordDto {
   @ApiProperty({ example: 'user@example.com' })
-  @IsEmail()
+  @IsEmail({}, { message: 'Email không hợp lệ' })
+  @IsNotEmpty({ message: 'Email không được để trống' })
   email: string;
 
   @ApiProperty({ example: '123456' })
   @IsString()
   @IsNotEmpty({ message: 'Mã OTP là bắt buộc' })
+  @Length(6, 6, { message: 'Mã OTP phải có đúng 6 ký tự' })
   code: string;
 
   @ApiProperty({ example: 'newpassword123', minLength: 6 })
   @IsString()
   @MinLength(6, { message: 'Mật khẩu mới phải từ 6 ký tự' })
+  @IsNotEmpty({ message: 'Mật khẩu mới không được để trống' })
   newPassword: string;
 }

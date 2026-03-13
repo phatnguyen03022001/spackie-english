@@ -41,6 +41,7 @@ class EnvSchema {
 
   @IsBoolean()
   SWAGGER_ENABLE: boolean;
+  enableImplicitConversion: true;
 
   @IsString()
   SWAGGER_PATH: string;
@@ -67,7 +68,11 @@ export function validate(config: Record<string, unknown>) {
   const errors = validateSync(validated, { skipMissingProperties: false });
 
   if (errors.length) {
-    throw new Error(errors.toString());
+    const messages = errors
+      .map((error) => Object.values(error.constraints ?? {}).join(', '))
+      .join('; ');
+
+    throw new Error(`Config validation error: ${messages}`);
   }
 
   return validated;
@@ -108,7 +113,7 @@ export default () => ({
     refreshSecret: process.env.JWT_REFRESH_SECRET,
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
 
-    saltRounds: Number(process.env.BCRYPT_SALT_ROUNDS) || 10,
+    saltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS ?? '10', 10),
   },
 });
 -e 
@@ -146,7 +151,7 @@ FILE: ./cors.config.ts
 ---
 export default () => ({
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') ?? '*',
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
   },
 });
 -e 
