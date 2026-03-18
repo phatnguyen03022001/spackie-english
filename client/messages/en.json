@@ -1,4 +1,106 @@
 {
+  "auth": {
+    "tabs": {
+      "password": "Password",
+      "otp": "OTP Code"
+    },
+    "login": {
+      "email_label": "Email",
+      "password_label": "Password",
+      "forgot_password": "Forgot password?",
+      "login_button": "Log in",
+      "processing": "Processing...",
+      "send_otp_button": "Send verification code",
+      "sending_otp": "Sending code...",
+      "noAccount": "Don't have an account?",
+      "registerLink": "Register now",
+      "messages": {
+        "success": "Login successful!",
+        "error": "An error occurred, please try again.",
+        "invalid_credentials": "Email or password is incorrect.",
+        "forbidden": "You do not have permission to access this system.",
+        "unauthorized": "Your session has expired. Please log in again.",
+        "too_many_requests": "Too many attempts. Please try again later.",
+        "validation_error": "Input data is invalid.",
+        "default_error": "An unexpected error occurred."
+      }
+    },
+    "register": {
+      "first_name": "First Name",
+      "last_name": "Last Name",
+      "email": "Email",
+      "password": "Password",
+      "confirm_password": "Confirm Password",
+      "submit": "Register Now",
+      "processing": "Creating account...",
+      "placeholder_first": "Nguyen",
+      "placeholder_last": "Van A",
+      "placeholder_email": "example@gmail.com",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Log in"
+    },
+    "otp": {
+      "title_register": "Verify Registration",
+      "title_login": "Verify Login",
+      "title_forgot_password": "Reset Password",
+      "subtitle": "We've sent a code to",
+      "verify_button": "Confirm Code",
+      "resend_button": "Resend code",
+      "resend_countdown": "Resend in",
+      "send_otp_button": "Send verification code",
+      "sending_otp": "Sending code...",
+      "processing": "Verifying...",
+      "back_to_login": "Back to login"
+    },
+    "forgot_password": {
+      "label_email": "Recovery Email",
+      "placeholder_email": "your-email@example.com",
+      "label_otp": "Verification Code (OTP)",
+      "placeholder_otp": "Enter 6 digits",
+      "label_password": "New Password",
+      "placeholder_password": "••••••",
+      "btn_submit": "Update Password",
+      "btn_use_other": "Use a different email?",
+      "link_back": "Back to login",
+      "toast_success": "Password reset successfully!",
+      "toast_error_send": "Could not send OTP",
+      "toast_error_default": "An error occurred"
+    },
+    "layout": {
+      "badge": "✨ Learning Platform",
+      "quote": "Education is the most powerful weapon which you can use to change the world.",
+      "quote_author": "Nelson Mandela",
+      "brand_name_part1": "Spackie",
+      "brand_name_part2": "English",
+      "welcome": "Welcome back!",
+      "subtitle": "Continue your English learning journey today.",
+      "terms_text": "By signing in, you agree to our",
+      "terms_link": "Terms",
+      "and": "and",
+      "privacy_link": "Privacy Policy"
+    }
+  },
+
+  "sidebar": {
+    "light": "Light",
+    "dark": "Dark",
+    "user_fallback": "User"
+  },
+  "nav": {
+    "group_study": "Learning",
+    "group_teaching": "Teaching",
+    "group_system": "System",
+    "dashboard": "Dashboard",
+    "listen": "Listening",
+    "vocabulary": "Vocabulary",
+    "translate": "Translate",
+    "classes": "My Classes",
+    "grades": "Grading",
+    "curriculum": "Curriculum",
+    "users": "Users",
+    "logs": "System Logs",
+    "settings": "Settings"
+  },
   "Home": {
     "hero": {
       "badge": "Standard International Program 2026",
@@ -30,6 +132,25 @@
       "title": "Are you ready to level up?",
       "description": "Join a community of 50,000+ students progressing every day. 30% discount for new students this month.",
       "button": "Claim Discount"
+    },
+    "common": {
+      "notFound": "Page Not Found",
+      "notFoundTitle": "Lost in translation?",
+      "notFoundDescription": "The page you are looking for either does not exist or has been moved to a different learning path.",
+      "backHome": "Back to homepage",
+      "backToLogin": "Log in"
     }
+  },
+  "validation": {
+    "required": "This field is required",
+    "email": "Invalid email address",
+    "password_min": "Password must be at least 8 characters",
+    "password_match": "Passwords do not match"
+  },
+  "profile": {
+    "title": "My Profile",
+    "avatar": "Profile Picture",
+    "update": "Update Profile",
+    "security": "Security Settings"
   }
 }

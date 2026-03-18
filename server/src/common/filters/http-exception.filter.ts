@@ -1,5 +1,3 @@
-// src/common/filters/http-exception.filter.ts
-
 import {
   ArgumentsHost,
   Catch,
@@ -16,27 +14,38 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
-
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status: HttpStatus =
+    const status =
       exception instanceof HttpException
-        ? (exception.getStatus() as HttpStatus)
+        ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const rawMessage: unknown =
+    const rawMessage =
       exception instanceof HttpException
         ? exception.getResponse()
         : 'Internal server error';
 
     const message = this.formatMessage(rawMessage);
 
-    // log server error
-    if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
+    const logPayload = {
+      status,
+      path: request.originalUrl,
+      method: request.method,
+      body: request.body,
+      query: request.query,
+      params: request.params,
+      message,
+    };
+
+    if (status >= 500) {
       this.logger.error(
         exception instanceof Error ? exception.stack : exception,
+        logPayload,
       );
+    } else {
+      this.logger.warn(logPayload);
     }
 
     response.status(status).json({
@@ -55,9 +64,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     if (Array.isArray(rawMessage)) {
-      return rawMessage
-        .filter((msg): msg is string => typeof msg === 'string')
-        .map((msg) => msg);
+      return rawMessage.filter((msg): msg is string => typeof msg === 'string');
     }
 
     if (rawMessage && typeof rawMessage === 'object') {

@@ -1,9 +1,11 @@
 // src/app.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 @Injectable()
 export class AppService {
+  private readonly logger = new Logger(AppService.name);
   getHome(): string {
+    this.logger.debug('Test thử log DEBUG xem có hiện không?');
     return `
 <!DOCTYPE html>
 <html lang="en">

@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { Helpers } from '@common/utils/helpers';
 import { MailService } from '@/modules/mail/mail.service';
-import { User, UserRole } from '@prisma/client';
+import { User, UserRole, OTPType } from '@prisma/client';
 import {
   RegisterDto,
   SendOtpDto,
@@ -28,14 +28,16 @@ export class AuthService {
     private readonly mailService: MailService,
   ) {}
 
-  async sendOtp(
-    dto: SendOtpDto,
-    type: 'REGISTER' | 'LOGIN' | 'FORGOT_PASSWORD',
-  ) {
+  /* =======================================================
+      OTP CORE LOGIC
+  ======================================================= */
+
+  async sendOtp(dto: SendOtpDto, type: OTPType) {
     if (type !== 'REGISTER') {
       const user = await this.prisma.user.findUnique({
         where: { email: dto.email },
       });
+
       if (!user) throw new NotFoundException('Email không tồn tại');
     }
 
@@ -45,43 +47,55 @@ export class AuthService {
     return { message: 'Mã xác thực đã được gửi đến email của bạn' };
   }
 
-  private async createOtp(email: string, type: string) {
+  private async createOtp(email: string, type: OTPType) {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.oTP.upsert({
-      where: { email_type: { email, type } },
-      update: { code, expiresAt },
+      where: {
+        email_type_unique: { email, type },
+      },
+      update: { code, expiresAt, used: false },
       create: { email, code, type, expiresAt },
     });
 
     return code;
   }
 
-  private async verifyOtp(email: string, code: string, type: string) {
+  private async verifyOtp(email: string, code: string, type: OTPType) {
     const otp = await this.prisma.oTP.findFirst({
-      where: { email, code, type, expiresAt: { gt: new Date() } },
+      where: {
+        email,
+        code,
+        type,
+        expiresAt: { gt: new Date() },
+        used: false,
+      },
     });
 
-    if (!otp)
+    if (!otp) {
       throw new BadRequestException('Mã OTP không hợp lệ hoặc đã hết hạn');
+    }
 
     return otp;
   }
+
+  /* =======================================================
+      REGISTER
+  ======================================================= */
 
   async register(dto: RegisterDto) {
     const existed = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
 
-    if (existed?.isVerified) {
+    if (existed && existed.isVerified) {
       throw new ConflictException('Email đã được đăng ký và xác thực');
     }
 
     const hashedPassword = await Helpers.hashPassword(dto.password);
-
     const name = dto.firstName
-      ? `${dto.firstName} ${dto.lastName}`.trim()
+      ? `${dto.firstName.trim()} ${dto.lastName?.trim() || ''}`.trim()
       : null;
 
     const user = await this.prisma.user.upsert({
@@ -90,6 +104,7 @@ export class AuthService {
         password: hashedPassword,
         name,
         role: dto.role || UserRole.STUDENT,
+        updatedAt: new Date(), // Đảm bảo ghi đè giá trị null cũ
       },
       create: {
         email: dto.email,
@@ -114,15 +129,20 @@ export class AuthService {
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { email: dto.email },
-        data: { isVerified: true },
+        data: { isVerified: true, updatedAt: new Date() },
       }),
-      this.prisma.oTP.delete({
-        where: { email_type: { email: dto.email, type: 'REGISTER' } },
+      // Sử dụng deleteMany để tránh lỗi RecordNotFound nếu nhấn 2 lần
+      this.prisma.oTP.deleteMany({
+        where: { email: dto.email, type: 'REGISTER' },
       }),
     ]);
 
-    return { message: 'Xác thực tài khoản thành công! Bạn có thể đăng nhập.' };
+    return { message: 'Xác thực tài khoản thành công' };
   }
+
+  /* =======================================================
+      LOGIN
+  ======================================================= */
 
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
@@ -137,7 +157,7 @@ export class AuthService {
     }
 
     if (!user.isVerified) {
-      throw new UnauthorizedException('Tài khoản chưa được xác thực email');
+      throw new UnauthorizedException('Tài khoản chưa xác thực email');
     }
 
     return this.generateTokens(user);
@@ -149,18 +169,24 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
+
     if (!user) throw new NotFoundException('Người dùng không tồn tại');
 
-    await this.prisma.oTP.delete({
-      where: { email_type: { email: dto.email, type: 'LOGIN' } },
+    await this.prisma.oTP.deleteMany({
+      where: { email: dto.email, type: 'LOGIN' },
     });
 
     return this.generateTokens(user);
   }
 
+  /* =======================================================
+      FORGOT PASSWORD
+  ======================================================= */
+
   async verifyForgotOtp(dto: VerifyOtpDto) {
     await this.verifyOtp(dto.email, dto.code, 'FORGOT_PASSWORD');
 
+    // Không xóa OTP ở đây vì cần giữ để gọi tiếp hàm forgotPassword bên dưới
     return {
       email: dto.email,
       message: 'OTP hợp lệ, vui lòng đặt mật khẩu mới',
@@ -168,6 +194,7 @@ export class AuthService {
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
+    // Verify lại một lần nữa trước khi đổi pass
     await this.verifyOtp(dto.email, dto.code, 'FORGOT_PASSWORD');
 
     const hashedPassword = await Helpers.hashPassword(dto.newPassword);
@@ -175,15 +202,19 @@ export class AuthService {
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { email: dto.email },
-        data: { password: hashedPassword },
+        data: { password: hashedPassword, updatedAt: new Date() },
       }),
-      this.prisma.oTP.delete({
-        where: { email_type: { email: dto.email, type: 'FORGOT_PASSWORD' } },
+      this.prisma.oTP.deleteMany({
+        where: { email: dto.email, type: 'FORGOT_PASSWORD' },
       }),
     ]);
 
     return { message: 'Mật khẩu đã được đặt lại thành công' };
   }
+
+  /* =======================================================
+      JWT GENERATION
+  ======================================================= */
 
   private generateTokens(user: User) {
     const payload = {

@@ -1,6 +1,11 @@
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import { validateSync } from 'class-validator';
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  validateSync,
+} from 'class-validator';
 
 class EnvSchema {
   @IsString()
@@ -39,7 +44,6 @@ class EnvSchema {
 
   @IsBoolean()
   SWAGGER_ENABLE: boolean;
-  enableImplicitConversion: true;
 
   @IsString()
   SWAGGER_PATH: string;
@@ -59,19 +63,27 @@ class EnvSchema {
 }
 
 export function validate(config: Record<string, unknown>) {
-  const validated = plainToInstance(EnvSchema, config, {
-    enableImplicitConversion: true,
+  // Chuyển đổi plain object sang class instance để class-validator có thể làm việc
+  const validatedConfig = plainToInstance(EnvSchema, config, {
+    enableImplicitConversion: true, // Tự động convert string sang number/boolean
   });
 
-  const errors = validateSync(validated, { skipMissingProperties: false });
+  const errors = validateSync(validatedConfig, {
+    skipMissingProperties: false,
+  });
 
-  if (errors.length) {
+  if (errors.length > 0) {
     const messages = errors
-      .map((error) => Object.values(error.constraints ?? {}).join(', '))
-      .join('; ');
+      .map((error) => {
+        const constraints = error.constraints
+          ? Object.values(error.constraints).join(', ')
+          : `Invalid ${error.property}`;
+        return `${error.property}: ${constraints}`;
+      })
+      .join(' | ');
 
-    throw new Error(`Config validation error: ${messages}`);
+    throw new Error(`❌ Config validation error: ${messages}`);
   }
 
-  return validated;
+  return validatedConfig;
 }

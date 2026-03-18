@@ -1,0 +1,386 @@
+FILE: ./[locale]/layout.tsx
+---
+// app/[locale]/layout.tsx
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "@/styles/globals.css";
+import { AuthProvider } from "@/features/auth/hooks/useAuthContext";
+import { Providers } from "@/lib/providers";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
+import { notFound } from "next/navigation";
+import { Locale, routing } from "@/lib/i18n/routing";
+import { Toaster } from "@/components/ui/sonner";
+
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "English Learning Platform",
+  description: "Learn English with AI-powered platform",
+};
+
+export default async function RootLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+
+  if (!routing.locales.includes(locale as Locale)) {
+    notFound();
+  }
+
+  const messages = await getMessages();
+
+  return (
+    <html lang={locale} className="light" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <Providers>
+            <AuthProvider>
+              {children}
+              <Toaster position="bottom-right" richColors />
+            </AuthProvider>
+          </Providers>
+        </NextIntlClientProvider>
+      </body>
+    </html>
+  );
+}
+-e 
+
+
+FILE: ./[locale]/error.tsx
+---
+"use client"; // Dòng này là bắt buộc và phải ở trên cùng
+
+import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
+
+export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    // Log lỗi để bạn kiểm tra trong terminal hoặc browser console
+    console.error("Crash error:", error);
+  }, [error]);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center">
+      <h2 className="text-2xl font-bold mb-4">Đã có lỗi xảy ra!</h2>
+      <Button onClick={() => reset()} variant="default">
+        Thử lại
+      </Button>
+    </div>
+  );
+}
+-e 
+
+
+FILE: ./[locale]/loading.tsx
+---
+// src/app/[lang]/loading.tsx
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function Loading() {
+  return (
+    <div className="container mx-auto px-4 py-16 space-y-8">
+      <Skeleton className="h-12 w-96 mx-auto" />
+      <Skeleton className="h-6 w-72 mx-auto" />
+      <div className="flex justify-center gap-4 mt-8">
+        <Skeleton className="h-12 w-32" />
+        <Skeleton className="h-12 w-32" />
+      </div>
+      <div className="grid md:grid-cols-3 gap-8 mt-20">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="space-y-4">
+            <Skeleton className="h-48 w-full rounded-xl" />
+            <Skeleton className="h-6 w-32 mt-4" />
+            <Skeleton className="h-4 w-full mt-2" />
+            <Skeleton className="h-4 w-3/4 mt-2" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+-e 
+
+
+FILE: ./[locale]/(auth)/verify/page.tsx
+---
+"use client";
+
+import { AuthContainer } from "@/components/auth/auth-container";
+import { OtpVerification } from "@/features/auth/components/OtpVerification";
+import { useVerifyOtp } from "@/features/auth/mutations/useVerifyOtp";
+import { useSearchParams, useRouter } from "next/navigation";
+
+export default function VerifyPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const email = searchParams.get("email") || "";
+  const type = (searchParams.get("type") as "REGISTER" | "LOGIN" | "FORGOT_PASSWORD") || "REGISTER";
+
+  const { mutate, isPending } = useVerifyOtp(type);
+
+  // Xác định nơi quay lại dựa trên type
+  const backHref = type === "REGISTER" ? "/register" : "/login";
+
+  return (
+    <AuthContainer title="Xác thực OTP" backHref={backHref}>
+      <OtpVerification
+        email={email}
+        type={type}
+        onVerify={(otp) => mutate({ email, code: otp })}
+        isPending={isPending}
+      />
+    </AuthContainer>
+  );
+}
+-e 
+
+
+FILE: ./[locale]/(auth)/register/page.tsx
+---
+import { AuthContainer } from "@/components/auth/auth-container";
+import { RegisterForm } from "@/features/auth/components/RegisterForm";
+import { Link } from "@/lib/i18n/routing";
+
+export default function RegisterPage() {
+  return (
+    <AuthContainer title="Tạo tài khoản">
+      <RegisterForm />
+      <div className="text-center text-sm mt-4 text-muted-foreground">
+        Đã có tài khoản?{" "}
+        <Link href="/login" className="text-primary hover:underline font-medium">
+          Đăng nhập
+        </Link>
+      </div>
+    </AuthContainer>
+  );
+}
+-e 
+
+
+FILE: ./[locale]/(auth)/forgot-password/page.tsx
+---
+import { AuthContainer } from "@/components/auth/auth-container";
+import { ForgotPasswordForm } from "@/features/auth/components/ForgotPasswordForm";
+
+export default function ForgotPasswordPage() {
+  return (
+    <AuthContainer title="Quên mật khẩu" backHref="/login">
+      <ForgotPasswordForm />
+    </AuthContainer>
+  );
+}
+-e 
+
+
+FILE: ./[locale]/(auth)/layout.tsx
+---
+import React from "react";
+import Image from "next/image";
+import { Link } from "@/lib/i18n/routing";
+import { ArrowLeft } from "lucide-react";
+
+interface AuthLayoutProps {
+  children: React.ReactNode;
+}
+
+export default function AuthLayout({ children }: AuthLayoutProps) {
+  return (
+    <div className="relative min-h-screen w-full flex items-center justify-center lg:grid lg:grid-cols-2 lg:items-stretch">
+      {/* 1. Background cho màn hình nhỏ (Mobile/Tablet) */}
+      {/* Chỉ hiển thị ở màn hình < lg */}
+      <div className="absolute inset-0 lg:hidden">
+        <Image src="/home/intro-5.jpg" alt="Background Mobile" fill priority className="object-cover" />
+        {/* Overlay tối để dễ đọc text trên mobile */}
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+      </div>
+
+      {/* 2. Cột trái: Media Background (Chỉ hiển thị từ màn hình lg trở lên) */}
+      <div className="relative hidden lg:flex flex-col justify-between p-12 bg-zinc-950 text-white overflow-hidden">
+        <Link
+          href="/"
+          className="absolute top-8 left-8 flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors z-20">
+          <ArrowLeft size={16} /> Quay lại trang chủ
+        </Link>
+
+        <Image src="/home/intro-5.jpg" alt="Background Desktop" fill priority className="object-cover opacity-50" />
+
+        <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent to-black/80 z-10" />
+
+        <div className="relative z-20 mt-auto space-y-4">
+          <blockquote className="space-y-2">
+            <p className="text-3xl font-medium leading-relaxed italic">
+              &quot;Giáo dục là vũ khí mạnh nhất mà bạn có thể dùng để thay đổi thế giới.&quot;
+            </p>
+            <footer className="text-zinc-400 font-medium">— Nelson Mandela</footer>
+          </blockquote>
+        </div>
+      </div>
+
+      {/* 3. Cột phải: Auth Form */}
+      {/* Thêm z-10 để nổi lên trên lớp ảnh nền mobile */}
+      <div className="relative z-10 flex flex-col justify-center items-center w-full p-6 lg:p-24">
+        {/* Thêm lớp nền trắng/mờ cho Card trên mobile để tăng độ tương phản */}
+        <div className="w-full max-w-sm space-y-8 bg-background/95 p-8 rounded-2xl shadow-2xl lg:bg-transparent lg:p-0 lg:shadow-none">
+          {/* Logo */}
+          <div className="flex items-center gap-2 font-bold text-xl">
+            <div className="w-8 h-8 bg-primary rounded-lg shadow-primary/20 shadow-lg" />
+            <span className="text-foreground">Spackie English</span>
+          </div>
+
+          {/* Form container */}
+          <div className="space-y-2 text-center lg:text-left">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Chào mừng bạn!</h1>
+            <p className="text-sm text-muted-foreground">Vui lòng nhập thông tin để tiếp tục hành trình học tập.</p>
+          </div>
+
+          <div className="text-foreground">{children}</div>
+        </div>
+
+        {/* Nút quay lại chỉ hiện trên mobile */}
+        <Link
+          href="/"
+          className="mt-8 flex lg:hidden items-center gap-2 text-sm text-white/70 hover:text-white transition-colors">
+          <ArrowLeft size={16} /> Trang chủ
+        </Link>
+      </div>
+    </div>
+  );
+}
+-e 
+
+
+FILE: ./[locale]/(auth)/login/page.tsx
+---
+import { AuthContainer } from "@/components/auth/auth-container";
+import { LoginForm } from "@/features/auth/components/LoginForm";
+import { Link } from "@/lib/i18n/routing";
+
+export default function LoginPage() {
+  return (
+    <AuthContainer title="Đăng nhập">
+      <LoginForm />
+      <div className="text-center text-sm mt-4 text-muted-foreground">
+        Chưa có tài khoản?{" "}
+        <Link href="/register" className="text-primary hover:underline font-medium">
+          Đăng ký ngay
+        </Link>
+      </div>
+    </AuthContainer>
+  );
+}
+-e 
+
+
+FILE: ./[locale]/page.tsx
+---
+"use client";
+
+import React from "react";
+import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Image from "next/image";
+
+export default function EnglishLearningHomeClient() {
+  const t = useTranslations("Home");
+
+  // Danh sách các key dựa trên JSON của bạn
+  const courseKeys = ["ielts", "business", "communication"] as const;
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      {/* --- HERO SECTION --- */}
+      <section className="relative h-screen w-full flex flex-col items-center justify-center overflow-hidden">
+        <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-60">
+          <source src="/home/intro.webm" type="video/webm" />
+        </video>
+
+        <div className="absolute inset-0 bg-linear-to-b from-background/80 via-transparent to-background" />
+
+        <div className="relative z-10 text-center px-6">
+          <Badge variant="secondary" className="mb-6 backdrop-blur-md px-6 py-1.5 uppercase tracking-widest text-xs">
+            {t("hero.badge")}
+          </Badge>
+          <h1 className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 leading-[0.9]">
+            {t("hero.title")} <br />
+            <span className="text-flow-gradient">{t("hero.subtitle")}</span>
+          </h1>
+          <Button size="lg" className="rounded-full px-10">
+            {t("hero.ctaStart")}
+          </Button>
+        </div>
+      </section>
+
+      {/* --- COURSE SECTION --- */}
+      <section className="py-24 px-6 max-w-7xl mx-auto">
+        <h2 className="text-4xl font-bold mb-16 text-center tracking-tight">{t("courses.heading")}</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {courseKeys.map((key, index) => (
+            <Card
+              key={key}
+              className="bg-card/50 backdrop-blur-md border-border hover:border-primary transition-all duration-300 overflow-hidden">
+              {/* Hình ảnh đại diện cho khóa học */}
+              <div className="relative h-48 w-full">
+                <Image
+                  src={`/home/intro-${index + 1}.jpg`}
+                  alt={t(`courses.items.${key}`)}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+
+              <CardHeader>
+                <CardTitle className="text-2xl">{t(`courses.items.${key}`)}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-6 h-12">{t("courses.description")}</p>
+                <div className="flex justify-between items-center border-t border-border pt-6">
+                  <span className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">
+                    {t("courses.viewAll").replace(" →", "")}
+                  </span>
+                  <Button variant="default" size="sm">
+                    {t("courses.enroll")}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+-e 
+
+
+FILE: ./[locale]/not-found.tsx
+---
+import { getLocale, getTranslations } from "next-intl/server";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+
+export default async function GlobalNotFound() {
+  // Sử dụng bản async cho Server Component
+  const locale = await getLocale();
+  const t = await getTranslations("Home.common");
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+      <h1 className="text-4xl font-bold">{t("notFound")}</h1>
+      <Button asChild>
+        <Link href={`/${locale}`}>{t("backHome")}</Link>
+      </Button>
+    </div>
+  );
+}
+-e 
+
+

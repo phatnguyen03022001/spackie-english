@@ -1,35 +1,139 @@
 {
+  "auth": {
+    "tabs": {
+      "password": "Mật khẩu",
+      "otp": "Mã OTP"
+    },
+    "login": {
+      "email_label": "Email",
+      "password_label": "Mật khẩu",
+      "forgot_password": "Quên mật khẩu?",
+      "login_button": "Đăng nhập",
+      "processing": "Đang xử lý...",
+      "send_otp_button": "Gửi mã xác nhận",
+      "sending_otp": "Đang gửi mã...",
+      "noAccount": "Chưa có tài khoản?",
+      "registerLink": "Đăng ký ngay",
+      "messages": {
+        "success": "Đăng nhập thành công!",
+        "error": "Đã có lỗi xảy ra, vui lòng thử lại.",
+        "invalid_credentials": "Email hoặc mật khẩu không chính xác.",
+        "forbidden": "Bạn không có quyền truy cập vào hệ thống này."
+      }
+    },
+    "register": {
+      "first_name": "Họ",
+      "last_name": "Tên",
+      "email": "Email",
+      "password": "Mật khẩu",
+      "confirm_password": "Xác nhận mật khẩu",
+      "submit": "Đăng ký ngay",
+      "processing": "Đang tạo tài khoản...",
+      "placeholder_first": "Nguyễn",
+      "placeholder_last": "Văn A",
+      "placeholder_email": "vi-du@gmail.com",
+      "hasAccount": "Đã có tài khoản?",
+      "loginLink": "Đăng nhập"
+    },
+    "otp": {
+      "title_register": "Xác thực đăng ký",
+      "title_login": "Xác thực đăng nhập",
+      "title_forgot_password": "Đặt lại mật khẩu",
+      "subtitle": "Chúng tôi đã gửi một mã đến",
+      "verify_button": "Xác nhận mã",
+      "resend_button": "Gửi lại mã",
+      "resend_countdown": "Gửi lại sau",
+      "send_otp_button": "Gửi mã xác nhận",
+      "sending_otp": "Đang gửi mã...",
+      "processing": "Đang xác thực...",
+      "back_to_login": "Quay lại đăng nhập"
+    },
+    "forgot_password": {
+      "label_email": "Email khôi phục",
+      "placeholder_email": "email-cua-ban@vi-du.com",
+      "label_otp": "Mã xác thực (OTP)",
+      "placeholder_otp": "Nhập 6 chữ số",
+      "label_password": "Mật khẩu mới",
+      "placeholder_password": "••••••",
+      "btn_submit": "Cập nhật mật khẩu",
+      "btn_use_other": "Sử dụng email khác?",
+      "link_back": "Quay lại đăng nhập",
+      "toast_success": "Đặt lại mật khẩu thành công!",
+      "toast_error_send": "Không thể gửi mã OTP",
+      "toast_error_default": "Đã xảy ra lỗi"
+    },
+    "layout": {
+      "badge": "✨ Nền tảng học tập",
+      "quote": "Giáo dục là vũ khí mạnh mẽ nhất mà người ta có thể sử dụng để thay đổi thế giới.",
+      "quote_author": "Nelson Mandela",
+      "brand_name_part1": "Spackie",
+      "brand_name_part2": "English",
+      "welcome": "Chào mừng trở lại!",
+      "subtitle": "Tiếp tục hành trình học tiếng Anh của bạn ngay hôm nay.",
+      "terms_text": "Bằng cách đăng nhập, bạn đồng ý với",
+      "terms_link": "Điều khoản",
+      "and": "và",
+      "privacy_link": "Chính sách bảo mật"
+    }
+  },
+  "sidebar": {
+    "light": "Sáng",
+    "dark": "Tối",
+    "user_fallback": "Người dùng"
+  },
+  "nav": {
+    "group_study": "Học tập",
+    "group_teaching": "Giảng dạy",
+    "group_system": "Hệ thống",
+    "dashboard": "Bảng điều khiển",
+    "listen": "Luyện nghe",
+    "vocabulary": "Từ vựng",
+    "translate": "Dịch thuật",
+    "classes": "Lớp học của tôi",
+    "grades": "Chấm điểm",
+    "curriculum": "Giáo trình",
+    "users": "Người dùng",
+    "logs": "Nhật ký hệ thống",
+    "settings": "Cài đặt"
+  },
   "Home": {
     "hero": {
-      "badge": "Chương trình học chuẩn quốc tế 2026",
-      "title": "Chinh phục Tiếng Anh",
-      "subtitle": "Đột phá sự nghiệp",
-      "description": "Nền tảng học tập thông minh sử dụng AI giúp bạn giao tiếp thành thạo chỉ sau 3 tháng. Học mọi lúc, mọi nơi với lộ trình cá nhân hóa.",
+      "badge": "Chương trình Quốc tế Chuẩn 2026",
+      "title": "Làm chủ Tiếng Anh",
+      "subtitle": "Bứt phá sự nghiệp",
+      "description": "Nền tảng học tập thông minh sử dụng AI giúp bạn giao tiếp lưu loát trong 3 tháng. Học mọi lúc, mọi nơi với lộ trình cá nhân hóa.",
       "ctaStart": "Bắt đầu học ngay",
-      "ctaFree": "Dùng thử miễn phí"
+      "ctaFree": "Học thử miễn phí"
     },
     "stats": {
       "students": "Học viên",
       "courses": "Khóa học",
-      "teachers": "Giảng viên",
+      "teachers": "Giáo viên",
       "awards": "Giải thưởng"
     },
     "courses": {
       "heading": "Khóa học nổi bật",
-      "subheading": "Lựa chọn lộ trình phù hợp với mục tiêu của bạn",
+      "subheading": "Chọn lộ trình phù hợp với mục tiêu của bạn",
       "viewAll": "Xem tất cả",
-      "description": "Học cùng giảng viên bản xứ và nhận chứng chỉ sau khóa học.",
-      "enroll": "Đăng ký",
+      "description": "Học cùng giáo viên bản ngữ và nhận chứng chỉ sau khóa học.",
+      "enroll": "Đăng ký ngay",
       "items": {
-        "ielts": "IELTS Masterclass",
-        "business": "English for Business",
-        "communication": "Communication Pro"
+        "ielts": "Luyện thi IELTS",
+        "business": "Tiếng Anh công sở",
+        "communication": "Giao tiếp chuyên sâu"
       }
     },
     "cta": {
       "title": "Bạn đã sẵn sàng nâng tầm bản thân?",
-      "description": "Tham gia cùng cộng đồng hơn 50.000 học viên đang tiến bộ mỗi ngày. Ưu đãi giảm 30% cho học viên mới trong tháng này.",
+      "description": "Tham gia cộng đồng hơn 50.000 học viên đang tiến bộ mỗi ngày. Giảm giá 30% cho học viên mới trong tháng này.",
       "button": "Nhận ưu đãi ngay"
+    },
+    "common": {
+      "notFound": "Không tìm thấy trang",
+      "notFoundTitle": "Bạn đang bị lạc đường?",
+      "notFoundDescription": "Trang bạn đang tìm kiếm không tồn tại hoặc đã được chuyển sang một lộ trình học tập khác.",
+      "backHome": "Quay lại trang chủ",
+      "backToLogin": "Đăng nhập"
     }
   }
 }

@@ -12,67 +12,75 @@ import { GlobalValidationPipe } from '@/common/pipes/validation.pipe'; // 1. Imp
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: false,
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  });
 
-  // Sử dụng pino logger thay cho logger mặc định
+  const logger = app.get(Logger);
   app.useLogger(app.get(Logger));
 
-  // Global Interceptors
   app.useGlobalInterceptors(
     new ResponseInterceptor(),
     new LoggerErrorInterceptor(),
   );
 
-  // Global Filter: Format mọi response lỗi theo chuẩn ApiResponseDto
   app.useGlobalFilters(new HttpExceptionFilter());
-
-  // 2. Sử dụng GlobalValidationPipe từ common thay vì tạo mới
-  // Điều này đảm bảo lỗi validate sẽ trả về đúng format { property, message }
   app.useGlobalPipes(GlobalValidationPipe);
-
-  const config = app.get(ConfigService);
-
-  // 3. Đồng bộ Global Prefix từ config
-  const prefix = config.get<string>('app.prefix') || 'api';
-  app.setGlobalPrefix(prefix, {
-    exclude: [
-      { path: '', method: RequestMethod.GET },
-      { path: 'health', method: RequestMethod.GET }, // Thường có thêm check health cho OTEL/Docker
-      { path: 'docs', method: RequestMethod.ALL },
-      { path: 'docs/(.*)', method: RequestMethod.ALL },
-    ],
-  });
-
-  // 4. Đồng bộ CORS
-  app.enableCors({
-    origin: config.get<string | string[]>('cors.origin'),
-    credentials: true, // Thường cần thiết khi làm việc với Cookie/NextJS
-  });
 
   const configService = app.get(ConfigService);
 
+  // 1. Setup Swagger TRƯỚC khi setGlobalPrefix
   const isSwaggerEnabled = configService.get<boolean>('swagger.enabled');
+  const swaggerPath = configService.get<string>('swagger.path') || 'docs';
+
   if (isSwaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle(configService.get<string>('swagger.title') || 'My API')
+      .setTitle(configService.get<string>('swagger.title') || 'Spackie API')
       .setDescription(
         configService.get<string>('swagger.description') || 'API Description',
       )
       .setVersion(configService.get<string>('swagger.version') || '1.0')
-      .addBearerAuth() // Nếu bạn có dùng JWT auth
+      .addBearerAuth()
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);
-    const swaggerPath = configService.get<string>('swagger.path') || 'docs';
-
     SwaggerModule.setup(swaggerPath, app, document);
   }
 
-  const port = config.get<number>('app.port') || 8000;
+  // 2. Setup Global Prefix với cách viết route mới
+  const prefix = configService.get<string>('app.prefix') || 'api';
+  app.setGlobalPrefix(prefix, {
+    exclude: [
+      { path: '', method: RequestMethod.GET },
+      { path: 'health', method: RequestMethod.GET },
+      // Sửa lỗi cảnh báo: sử dụng cú pháp route mới cho path-to-regexp
+      { path: swaggerPath, method: RequestMethod.ALL },
+      { path: `${swaggerPath}/(.*)`, method: RequestMethod.ALL },
+    ],
+  });
+
+  // 3. CORS
+  app.enableCors({
+    origin: configService.get<string | string[]>('cors.origin'),
+    credentials: true,
+  });
+
+  const port = configService.get<number>('app.port') || 8000;
   await app.listen(port);
 
-  console.log(`🚀 Server is running on: http://localhost:${port}/${prefix}`);
-  console.log(`📝 Swagger docs: http://localhost:${port}/docs`);
+  const env = configService.get<string>('app.env');
+
+  logger.log('>>> ENV VALUE:', env);
+
+  logger.log(
+    `🚀 Server is running on: http://localhost:${port}/${prefix}`,
+    'Bootstrap',
+  );
+  logger.log(
+    `📝 Swagger docs: http://localhost:${port}/${swaggerPath}`,
+    'Bootstrap',
+  );
 }
 
 void bootstrap();

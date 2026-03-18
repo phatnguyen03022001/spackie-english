@@ -1,0 +1,66 @@
+app/[locale]/
+└── (auth)/
+    ├── layout.tsx         # Layout riêng cho trang auth (ví dụ: căn giữa, logo)
+    ├── login/
+    │   └── page.tsx       # Chỉ import và gọi <LoginForm />
+    ├── register/
+    │   └── page.tsx       # Chỉ import và gọi <RegisterForm />
+    ├── forgot-password/
+    │   └── page.tsx       # Chỉ import và gọi <ForgotPasswordForm />
+    └── verify/
+        └── page.tsx       # Chỉ import và gọi <OtpVerification />
+
+features/auth/
+├── api/
+│   └── auth-client.ts        # Các hàm gọi API thuần (axios/fetch)
+├── components/
+│   ├── LoginForm.tsx         # Form đăng nhập
+│   ├── RegisterForm.tsx      # Form đăng ký
+│   ├── OtpVerification.tsx   # Form nhập mã OTP dùng chung
+│   └── ForgotPasswordForm.tsx# Form quên mật khẩu
+├── hooks/
+│   └── useAuthSession.ts     # Hook quản lý trạng thái User/Token sau khi login
+├── mutations/
+│   ├── useLogin.ts           # Wrapper cho React Query (Mutation)
+│   ├── useRegister.ts
+│   ├── useVerifyOtp.ts       # Xử lý verify (cả register/login/forgot)
+│   └── useSendOtp.ts         # Xử lý gửi lại mã OTP
+├── types/
+│   └── auth.types.ts         # Định nghĩa TypeScript (DTOs)
+└── index.ts                  # Public API export các components/hooks chính
+
+Bước 1: Foundation (Nền móng)
+Đừng vội code giao diện. Hãy chuẩn bị các định nghĩa và kết nối server trước.
+
+types/auth.types.ts: Định nghĩa các Interface/DTO cho Login, Register, Respone trả về từ NestJS. (Vì bạn có folder shared từ Prisma, hãy tận dụng các type được generate sẵn ở đây).
+
+api/auth-client.ts: Viết các hàm axios/fetch cơ bản. Ví dụ: login(data: LoginDto), verifyOtp(data: VerifyDto).
+
+Bước 2: Logic Layer (React Query Hooks)
+Chuyển các hàm API thuần thành các Hook để quản lý loading, error và cache.
+
+mutations/useRegister.ts & useLogin.ts: Đây là hai luồng chính.
+
+mutations/useSendOtp.ts & useVerifyOtp.ts: Các hàm bổ trợ cho luồng xác thực.
+
+hooks/useAuthSession.ts: Viết logic lưu trữ Token vào Cookies/LocalStorage và quản lý trạng thái User (Zustand hoặc React Context).
+
+Bước 3: UI Components (Features)
+Bây giờ mới bắt đầu làm giao diện. Nhờ có các Hook ở Bước 2, bạn chỉ cần "gắn" logic vào các nút bấm.
+
+components/RegisterForm.tsx: Nên làm Register trước để có tài khoản test.
+
+components/LoginForm.tsx.
+
+components/OtpVerification.tsx: Component này quan trọng vì nó được dùng chung cho nhiều luồng (Register, Login 2FA, Forgot Password).
+
+components/ForgotPasswordForm.tsx.
+
+Bước 4: Routing & Integration (App Router)
+Cuối cùng là ráp mọi thứ vào cấu trúc thư mục của NextJS.
+
+app/[locale]/(auth)/layout.tsx: Thiết lập khung nhìn chung (background, logo).
+
+Các page.tsx: Import các Form tương ứng từ folder features/auth/components.
+
+index.ts: Export các thành phần cần thiết để sử dụng ở các folder khác (như useAuthSession để check quyền ở Middleware).

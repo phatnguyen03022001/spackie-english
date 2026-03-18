@@ -7,27 +7,14 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model User {
-  id         String      @id @default(auto()) @map("_id") @db.ObjectId
-  email      String      @unique
-  password   String
-  isVerified Boolean     @default(false)
-  name       String?
-  role       UserRole    @default(STUDENT)
-  decks      Deck[]
-  flashcards Flashcard[]
-  createdAt  DateTime    @default(now())
-}
+// Với MongoDB, relationMode mặc định là "prisma" → emulate referential integrity ở client-side
+// Không hỗ trợ onDelete: SetNull trên required fields, không hỗ trợ đầy đủ referential actions như SQL
 
-model OTP {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  email     String
-  code      String
-  type      String
-  expiresAt DateTime
-
-  @@unique([email, type])
-}
+/**
+ * =========================
+ * ENUMS
+ * =========================
+ */
 
 enum UserRole {
   STUDENT
@@ -35,46 +22,134 @@ enum UserRole {
   ADMIN
 }
 
-model Deck {
-  id          String      @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  description String?
-  isPublic    Boolean     @default(false)
-  userId      String      @db.ObjectId
-  user        User        @relation(fields: [userId], references: [id])
-  flashcards  Flashcard[]
-  createdAt   DateTime    @default(now())
+enum CardStatus {
+  NEW
+  LEARNING
+  REVIEW
+  LAPSED
 }
 
-model Flashcard {
-  id       String  @id @default(auto()) @map("_id") @db.ObjectId
-  word     String // Từ vựng (Ví dụ: "hello")
-  phonetic String? // Phiên âm
-  audioUrl String? // Link file nghe từ API
+enum OTPType {
+  REGISTER
+  LOGIN
+  FORGOT_PASSWORD
+}
 
-  // Dữ liệu từ Dictionary API thường rất dài, ta lưu dạng JSON hoặc Type
+/**
+ * =========================
+ * USER (auth + progress)
+ * =========================
+ */
+
+model User {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  email    String   @unique
+  password String
+  role     UserRole @default(STUDENT)
+  name     String?
+
+  isVerified Boolean @default(false)
+
+  vocabXp    Int       @default(0)
+  streak     Int       @default(0)
+  lastActive DateTime?
+
+  decks Deck[]
+  cards Card[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+}
+
+/**
+ * =========================
+ * DECK
+ * =========================
+ */
+
+model Deck {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  isPublic    Boolean @default(false)
+  levelTag    String?
+
+  creatorId String @db.ObjectId
+  creator   User   @relation(fields: [creatorId], references: [id])
+
+  cards Card[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+
+  @@index([creatorId]) // Lấy decks của teacher/admin
+  @@index([isPublic]) // Lọc public decks
+  @@index([levelTag]) // Lọc theo level (nếu dùng)
+}
+
+/**
+ * =========================
+ * CARD (ANKI CORE)
+ * =========================
+ */
+
+model Card {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  word     String
+  phonetic String?
+  audioUrl String?
+
   meanings Meaning[]
 
-  // Quan hệ
-  userId String  @db.ObjectId
-  user   User    @relation(fields: [userId], references: [id])
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+
   deckId String? @db.ObjectId
   deck   Deck?   @relation(fields: [deckId], references: [id])
 
-  // Logic Anki (SM-2 Algorithm)
-  interval   Int      @default(0) // Khoảng cách ngày ôn tập tiếp theo
-  repetition Int      @default(0) // Số lần đã ôn tập thành công liên tiếp
-  easeFactor Float    @default(2.5) // Độ dễ của thẻ (mặc định 2.5)
-  nextReview DateTime @default(now()) // Thời điểm cần học lại
+  status     CardStatus @default(NEW)
+  interval   Int        @default(0)
+  repetition Int        @default(0)
+  easeFactor Float      @default(2.5)
+  nextReview DateTime   @default(now())
 
-  status    CardStatus @default(NEW)
-  createdAt DateTime   @default(now())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
 
-  @@index([userId, nextReview]) // Optimize query lấy từ cần học hôm nay
+  @@unique([userId, word]) // Ngăn duplicate từ vựng của cùng user
+  @@index([userId, nextReview]) // Core SRS: lấy card cần review
+  @@index([userId, deckId]) // Cards theo deck của user
+  @@index([deckId]) // Tất cả cards trong deck
+  @@index([userId, status]) // Lọc theo trạng thái học
 }
 
+/**
+ * =========================
+ * OTP (One-Time Password)
+ * =========================
+ */
+
+model OTP {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String
+  code      String
+  type      OTPType
+  expiresAt DateTime
+  used      Boolean  @default(false)
+
+  @@unique([email, type], name: "email_type_unique")
+  @@index([email])
+  @@index([expiresAt]) // Dễ query dọn dẹp OTP hết hạn
+}
+
+/**
+ * =========================
+ * EMBEDDED TYPES
+ * =========================
+ */
+
 type Meaning {
-  partOfSpeech String // noun, verb, adjective...
+  partOfSpeech String
   definitions  Definition[]
 }
 
@@ -83,11 +158,4 @@ type Definition {
   example    String?
   synonyms   String[]
   antonyms   String[]
-}
-
-enum CardStatus {
-  NEW
-  LEARNING
-  REVIEW
-  LAPSED
 }

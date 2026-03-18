@@ -4,10 +4,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Mapping các biến CSS vào hệ thống Tailwind v4 */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  
+  --font-sans: var(--font-google-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   
   --color-primary: var(--primary);
@@ -35,7 +35,6 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
 
-  /* Sidebar */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -45,44 +44,35 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Radius */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
 }
 
 :root {
   --radius: 0.625rem;
-  
-  /* Stone Base - Light Mode */
   --background: oklch(0.985 0.001 106.423);
   --foreground: oklch(0.21 0.006 285.885);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.21 0.006 285.885);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.21 0.006 285.885);
-  
-  /* Orange Accent */
   --primary: oklch(0.645 0.246 34.703);
   --primary-foreground: oklch(0.985 0 0);
-  
   --secondary: oklch(0.914 0.005 108.817);
   --secondary-foreground: oklch(0.21 0.006 285.885);
-  
   --muted: oklch(0.914 0.005 108.817);
   --muted-foreground: oklch(0.552 0.016 285.938);
-  
   --accent: oklch(0.92 0.05 45);
   --accent-foreground: oklch(0.45 0.2 35);
-  
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  
   --border: oklch(0.844 0.011 111.353);
   --input: oklch(0.844 0.011 111.353);
   --ring: oklch(0.645 0.246 34.703);
-
   --sidebar: oklch(0.97 0.001 106.423);
   --sidebar-foreground: oklch(0.21 0.006 285.885);
   --sidebar-primary: oklch(0.645 0.246 34.703);
@@ -94,34 +84,27 @@
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.92 0.004 286.32);
+  --background: oklch(0.12 0.005 285.823);
+  --foreground: oklch(0.98 0.001 286.32);
   --card: oklch(0.197 0.005 285.885);
   --card-foreground: oklch(0.92 0.004 286.32);
   --popover: oklch(0.141 0.005 285.823);
   --popover-foreground: oklch(0.92 0.004 286.32);
-  
-  --primary: oklch(0.705 0.213 47.604);
+  --primary: oklch(0.68 0.21 47.6);
   --primary-foreground: oklch(0.141 0.005 285.823);
-  
   --secondary: oklch(0.268 0.007 285.885);
   --secondary-foreground: oklch(0.985 0 0);
-  
   --muted: oklch(0.268 0.007 285.885);
-  --muted-foreground: oklch(0.701 0.009 285.938);
-  
+  --muted-foreground: oklch(0.65 0.01 285.938);
   --accent: oklch(0.25 0.05 45);
   --accent-foreground: oklch(0.985 0 0);
-  
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.985 0 0);
-  
-  --border: oklch(0.268 0.007 285.885);
+  --border: oklch(0.25 0.007 285.885);
   --input: oklch(0.268 0.007 285.885);
-  --ring: rgb(255, 105, 0);
-
-  --sidebar: oklch(0.197 0.005 285.885);
-  --sidebar-foreground: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.705 0.213 47.604);
+  --sidebar: oklch(0.16 0.005 285.885);
+  --sidebar-foreground: oklch(0.95 0.004 286.32);
   --sidebar-primary: oklch(0.705 0.213 47.604);
   --sidebar-primary-foreground: oklch(0.141 0.005 285.823);
   --sidebar-accent: oklch(0.268 0.007 285.885);
@@ -130,10 +113,27 @@
   --sidebar-ring: oklch(0.705 0.213 47.604);
 }
 
+/* @utility PHẢI nằm ở cấp cao nhất, không lồng trong @layer */
+@utility glass {
+  background-color: color-mix(in srgb, white 10%, transparent);
+  backdrop-filter: blur(24px);
+  border: 1px solid color-mix(in srgb, white 10%, transparent);
+}
+
+@utility glass-dark {
+  background-color: color-mix(in srgb, black 40%, transparent);
+  backdrop-filter: blur(24px);
+  border: 1px solid color-mix(in srgb, white 5%, transparent);
+}
+
+@utility glass-panel {
+  @apply glass dark:glass-dark rounded-xl p-4;
+}
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
   body {
     @apply bg-background text-foreground;

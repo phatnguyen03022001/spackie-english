@@ -1,0 +1,117 @@
+============================================================
+PROJECT: ANKI-STYLE VOCABULARY LEARNING SYSTEM
+MODULE: VOCABULARY & SM2 PROGRESS
+============================================================
+
+1. TỔNG QUAN HỆ THỐNG
+------------------------------------------------------------
+Hệ thống quản lý từ vựng theo phương pháp Spaced Repetition (Lặp lại ngắt quãng).
+Tách biệt nội dung gốc (Master Data - Teacher) và Tiến độ học tập (User Progress - Student).
+
+2. PHÂN QUYỀN (ROLES)
+------------------------------------------------------------
+[ADMIN]
+- Toàn quyền CRUD trên toàn bộ Deck/Card của hệ thống.
+- Quản lý metadata: levelTag (N1, IELTS, TOEIC...), Category.
+- Kiểm duyệt nội dung: Ẩn/Hiện các bộ thẻ vi phạm.
+
+[TEACHER]
+- Quản lý Master Deck: Tạo bộ thẻ chuyên môn, bộ thẻ bài tập.
+- Thiết lập isPublic: Chia sẻ bộ thẻ cho cộng đồng.
+- Import Tool: Upload hàng loạt Card từ Excel/CSV.
+- Analytics: Xem số lượng học sinh đang học bộ thẻ của mình.
+
+[STUDENT]
+- Khám phá: Xem và tìm kiếm Deck công khai.
+- Enroll: Copy Deck công khai về kho cá nhân (Clone Card).
+- Personalize: Tự tạo Deck/Card riêng.
+- Review (Core): Thực hiện học và đánh giá mức độ thuộc (Again, Hard, Good, Easy).
+
+3. LUỒNG DỮ LIỆU (WORKFLOW)
+------------------------------------------------------------
+BƯỚC 1: Teacher tạo Deck "IELTS 6.5" với 100 Cards (isPublic = true).
+BƯỚC 2: Student nhấn "Enroll". Hệ thống clone 100 Cards đó sang bản ghi mới:
+        - userId = Student_ID
+        - deckId = IELTS_6.5_ID
+        - status = NEW
+        - nextReview = Now
+BƯỚC 3: Student học bài thông qua API /reviews/today.
+BƯỚC 4: Sau mỗi câu trả lời, Server tính toán SM2 và cập nhật nextReview vào tương lai.
+
+4. DANH SÁCH API CHI TIẾT
+------------------------------------------------------------
+
+--- NHÓM 1: PUBLIC & SHARED (STUDENT) ---
+
+GET    /decks/public
+- Mô tả: Lấy danh sách Deck công khai.
+- Query: page, limit, search, levelTag.
+
+POST   /decks/:id/enroll
+- Mô tả: Clone toàn bộ Card của Deck gốc sang kho của User hiện tại.
+- Logic: Tạo bản sao Card với userId = current_user, status = NEW.
+
+--- NHÓM 2: LEARNING & REVIEW (STUDENT CORE) ---
+
+GET    /reviews/today
+- Mô tả: Lấy danh sách thẻ cần học/ôn hôm nay (nextReview <= Now).
+- Logic: Ưu tiên thẻ Lapsed (hỏng), sau đó đến New, cuối cùng là Review.
+
+GET    /reviews/stats
+- Mô tả: Thống kê số lượng thẻ theo trạng thái (New, Learning, Review).
+
+PATCH  /reviews/:cardId/answer
+- Mô tả: Gửi kết quả đánh giá (Grade: 1-Again, 2-Hard, 3-Good, 4-Easy).
+- Logic Backend:
+  + Tính SM2: interval, easeFactor.
+  + Nếu Grade=1 (Again): nextReview = Now + 1m/5m.
+  + Nếu Grade=4 (Easy): nextReview = Now + 4 days (tùy chỉnh).
+  + Update vocabXp cho User.
+- Trả về: Thông tin SM2 mới và nextReview.
+
+--- NHÓM 3: PERSONAL MANAGEMENT (STUDENT) ---
+
+GET    /decks/my-learning 
+- Mô tả: Danh sách Deck học sinh đang học.
+
+POST   /decks/personal
+- Mô tả: Student tự tạo Deck riêng.
+
+POST   /cards/personal
+- Mô tả: Student tự thêm Card vào Deck cá nhân.
+
+--- NHÓM 4: CONTENT CREATION (TEACHER) ---
+
+GET    /teacher/decks
+- Mô tả: Danh sách Deck do Teacher tạo.
+
+POST   /teacher/decks
+- Mô tả: Tạo Deck gốc mới.
+
+POST   /teacher/decks/:id/cards/bulk
+- Mô tả: Import hàng loạt từ vựng vào Deck gốc.
+
+PATCH  /teacher/cards/:id
+- Mô tả: Sửa nội dung Master Card (không ảnh hưởng SM2 của Student).
+
+GET    /teacher/decks/:id/analytics
+- Mô tả: Xem số người đã enroll và tốc độ học tập trung bình.
+
+--- NHÓM 5: SYSTEM ADMIN (ADMIN) ---
+
+PATCH  /admin/decks/:id/status
+- Mô tả: Duyệt hoặc Khóa Deck.
+
+POST   /admin/tags
+- Mô tả: Quản lý danh mục Level (N1, N2, IELTS...).
+
+5. THUẬT TOÁN SM2 (GỢI Ý LOGIC BACKEND)
+------------------------------------------------------------
+- Lần đầu học (NEW):
+  + Easy: interval = 4 ngày.
+  + Good: interval = 1 ngày.
+  + Again: nhắc lại sau 1 phút.
+- Đang ôn tập (REVIEW):
+  + interval = interval_cũ * easeFactor.
+  + easeFactor: Tăng nếu chọn Easy, giảm nếu chọn Hard/Again.
+============================================================
