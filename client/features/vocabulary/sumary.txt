@@ -1,0 +1,102 @@
+  ================================================================================
+  TÓM TẮT DỰ ÁN: HỆ THỐNG HỌC TỪ VỰNG THÔNG MINH (SPACKIE)
+  ================================================================================
+
+  --- 1. CORE LOGIC & TYPES ---
+  - @/features/types/index.ts: Định nghĩa các interface/enum cốt lõi cho toàn dự án.
+      + Thực thể chính: Card, Deck, Meaning, Definition.
+      + Enum CardStatus: NEW, LEARNING, REVIEW, LAPSED.
+      + Interface API: ReviewResult, DashboardStats, SessionResponse.
+
+  - @/types/shared: Các kiểu dữ liệu dùng chung hệ thống.
+      + TranslationFunction: Định nghĩa kiểu cho hàm đa ngôn ngữ (next-intl).
+      + ServerError: Cấu trúc lỗi chuẩn trả về từ NestJS (message, statusCode).
+
+  - @/features/utils/srs-logic.ts: Triển khai thuật toán SM-2 (Spaced Repetition System).
+      + Hàm calculateSM2: Tính Interval, Repetition, EaseFactor dựa trên Grade (1-4).
+      + Cơ chế bảo vệ: Giới hạn EaseFactor tối thiểu 1.3 để tránh "Ease Hell".
+
+  - @/features/schemas/index.ts: Xác thực dữ liệu với Zod.
+      + Bao gồm: deckSchema, cardSchema, syncReviewSchema.
+
+
+  --- 2. NETWORK & API (lib/axios.ts) ---
+  - Chức năng: Khởi tạo Axios Instance chạy được trên cả Client và Server (Next.js).
+  - Request Interceptor: 
+      + Tự động lấy Token từ Cookies (dùng `next/headers` cho Server và `js-cookie` cho Client).
+      + Đính kèm Header Authorization: Bearer {token}.
+  - Response Interceptor: 
+      + Xử lý lỗi 401: Xóa sạch Session (Cookies/LocalStorage) và phát sự kiện 'auth-expired'.
+
+
+  --- 3. COMPONENTS - LEARNING (GIAO DIỆN HỌC TẬP) ---
+  - review-session.tsx: Điều phối luồng học, quản lý trạng thái local và đồng bộ Server.
+  - review-card.tsx: UI hiển thị thẻ (Flip card, phonetic, audio, meanings).
+  - review-actions.tsx: Các nút đánh giá (Again, Hard, Good, Easy) kèm tính năng đo responseTime.
+  - deck-enroll-card.tsx: Logic đăng ký/hủy đăng ký bộ thẻ công khai.
+  - session-complete.tsx: Màn hình tổng kết sau buổi học.
+
+
+  --- 4. COMPONENTS - MANAGEMENT (QUẢN LÝ) ---
+  - deck-form.tsx: CRUD thông tin bộ thẻ (Title, Description, Public status).
+  - card-form.tsx: Quản lý chi tiết thẻ từ (Phân loại từ, định nghĩa, đồng nghĩa/trái nghĩa).
+  - bulk-import-form.tsx: Nhập liệu hàng loạt, tự động tra cứu từ điển/AI.
+
+
+  --- 5. COMPONENTS - DASHBOARD & SHARED ---
+  - review-forecast.tsx: Biểu đồ dự báo khối lượng học (Recharts).
+  - stats-overview.tsx: Thống kê tổng quan (Mastery rate, Status distribution).
+  - learning-heatmap.tsx: Biểu đồ nhiệt theo dõi tính chuyên cần (30 ngày).
+  - card-badge.tsx: Hiển thị trạng thái Card theo màu sắc chuẩn hóa.
+  - audio-player.tsx: Xử lý phát âm thanh từ vựng (autoPlay support).
+
+  ================================================================================
+
+  ================================================================================
+  BỔ SUNG CẤU TRÚC DỮ LIỆU & API (SPACKIE)
+  ================================================================================
+
+  --- 1. VALIDATION SCHEMAS (@/features/schemas/index.ts) ---
+  - Định nghĩa quy tắc xác thực dữ liệu bằng Zod:
+      + definitionSchema: Ràng buộc định nghĩa (min 1 ký tự), ví dụ, từ đồng nghĩa/trái nghĩa.
+      + meaningSchema: Xác thực loại từ (partOfSpeech) và mảng các định nghĩa.
+      + deckSchema: Ràng buộc tiêu đề bộ thẻ, mô tả và trạng thái công khai.
+      + cardSchema: Cấu trúc thẻ từ hoàn chỉnh (word, phonetic, audio, meanings).
+      + syncReviewSchema: Schema quan trọng để đồng bộ kết quả học tập (cardId, status, interval, easeFactor, responseTime...).
+
+
+  --- 2. API SERVICES (@/features/services/vocabApi.ts) ---
+  - Sử dụng apiClient (Axios) với Wrapper chuẩn `ApiResponse<T>` từ NestJS.
+  - Nhóm Student & Learning:
+      + Quản lý bộ thẻ: getPublicDecks, enrollDeck, unenrollDeck, getMyEnrolledDecks.
+      + Logic học tập: startSession (bắt đầu học), syncReviews (lưu kết quả SRS), undoLastReview.
+      + Dashboard & Thống kê: getDashboardStats, getHeatmap (biểu đồ nhiệt), getForecast (dự báo 7 ngày).
+  - Nhóm Teacher & Content Management:
+      + CRUD Deck: createDeck, updateDeck, deleteDeck, moderateDeck (duyệt công khai).
+      + CRUD Card: addCard, updateCard, deleteCard.
+      + Đặc biệt: bulkImportCards (tự động tạo thẻ hàng loạt từ danh sách từ vựng).
+
+
+  --- 3. DOMAIN TYPES & INTERFACES (@/features/types/index.ts) ---
+  - Chuyển đổi Schema thành Type: DeckFormData, CardFormData, SyncReviewData.
+  - Enum CardStatus: Định nghĩa 4 trạng thái vòng đời thẻ (NEW, LEARNING, REVIEW, LAPSED).
+  - Domain Interfaces:
+      + Card: Chứa thông tin từ vựng và các thông số SRS (interval, repetition, easeFactor).
+      + Deck: Thông tin bộ thẻ, bao gồm cả đếm số lượng thẻ (_count) và danh sách thẻ kèm theo.
+      + Thống kê: DashboardStats (tỷ lệ thành thạo, phân bổ trạng thái), HeatmapData, ForecastData.
+  - Response Helpers: SimpleResponse (cho mutation), SessionResponse (cho buổi học).
+
+  ================================================================================
+
+
+  --- 6. APP ROUTER MAPPING (100% COVERAGE) ---
+  - /vocabulary/page.tsx                => getDashboardStats, getHeatmap, getMyEnrolledDecks.
+  - /vocabulary/decks/page.tsx          => getPublicDecks, getRecommendedDecks.
+  - /vocabulary/decks/[deckId]/page.tsx => getDeckPreview, enrollDeck, unenrollDeck.
+  - /vocabulary/review/page.tsx         => startSession, syncReviews, undoLastReview, getTodayCards.
+
+  - /vocabulary/manage/layout.tsx       => (Shared Sidebar/Nav cho Teacher).
+  - /vocabulary/manage/page.tsx         => getTeacherDecks, createDeck.
+  - /vocabulary/manage/import/page.tsx  => bulkImportCards (Global/Fast import).
+  - /vocabulary/manage/[deckId]/page.tsx => getDeckDetail, updateDeck, deleteDeck, moderateDeck.
+  - /vocabulary/manage/[deckId]/cards/page.tsx => addCard, updateCard, deleteCard (Quản lý card theo bộ).

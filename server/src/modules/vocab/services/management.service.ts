@@ -1,15 +1,32 @@
+// src/modules/vocab/services/management.service.ts
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/modules/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { CardStatus, Prisma } from '@prisma/client';
 import { typedAxiosGet } from '@common/utils/axios-typed';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
-import { translate } from '@vitalets/google-translate-api';
-import { MeaningDto, CreateDeckDto, CreateCardDto } from '../dto/vocab.dto';
+import {
+  MeaningDto,
+  CreateDeckDto,
+  CreateCardDto,
+  UpdateCardDto,
+  UpdateDeckDto,
+} from '../dto/vocab.dto';
+
+interface IMyMemoryResponse {
+  responseData: {
+    translatedText: string;
+    match: number;
+  };
+  quotaFinished: boolean;
+  mt_translation: string | null;
+  responseStatus: number | string; // Đôi khi nó trả về string "200"
+  responseDetails: string;
+}
 
 interface IDictionaryResponse {
   word: string;
@@ -35,12 +52,367 @@ export class ManagementService {
     private readonly logger: PinoLogger,
   ) {}
 
+  async findTeacherDecks(teacherId: string) {
+    return this.prisma.deck.findMany({
+      where: { creatorId: teacherId },
+      include: { _count: { select: { cards: true } } },
+    });
+  }
+
+  async getDeckWithCards(id: string) {
+    return this.prisma.deck.findUnique({
+      where: { id },
+      include: { cards: true },
+    });
+  }
+
+  async findPublicDecks(search?: string, tag?: string) {
+    return this.prisma.deck.findMany({
+      where: {
+        isPublic: true,
+        AND: [
+          search ? { title: { contains: search, mode: 'insensitive' } } : {},
+          tag ? { levelTag: tag } : {},
+        ],
+      },
+    });
+  }
+
+  async updateDeckStatus(id: string, isPublic: boolean) {
+    return this.prisma.deck.update({
+      where: { id },
+      data: { isPublic },
+    });
+  }
+
+  async updateDeckMetadata(id: string, dto: UpdateDeckDto, userId: string) {
+    const deck = await this.prisma.deck.findFirst({
+      where: { id, creatorId: userId },
+    });
+    if (!deck) throw new NotFoundException('Deck not found');
+    return this.prisma.deck.update({ where: { id }, data: dto });
+  }
+
+  async updateCard(cardId: string, dto: UpdateCardDto, userId: string) {
+    return this.prisma.card.update({
+      where: { id: cardId, userId },
+      data: {
+        ...dto,
+        meanings: dto.meanings as unknown as Prisma.MeaningCreateInput[],
+      },
+    });
+  }
+  /**
+   * CREATE DECK
+   * Phải khởi tạo Stats nếu chưa có (phòng hờ)
+   */
+  async createDeck(creatorId: string, dto: CreateDeckDto) {
+    return this.prisma.deck.create({
+      data: { ...dto, creatorId },
+    });
+  }
+
+  /**
+   * SOFT DELETE DECK
+   * Cập nhật lại totalWords trong UserStats sau khi xóa
+   */
+  async deleteMasterDeck(id: string, userId: string) {
+    const deck = await this.prisma.deck.findFirst({
+      where: { id, creatorId: userId },
+    });
+    if (!deck) throw new NotFoundException('Không tìm thấy bộ thẻ');
+
+    // Đếm chi tiết từng loại trạng thái trước khi xóa
+    const cards = await this.prisma.card.findMany({
+      where: { deckId: id, userId },
+      select: { status: true },
+    });
+
+    const total = cards.length;
+    const mastered = cards.filter(
+      (c) => c.status === CardStatus.MASTERED,
+    ).length;
+    const learned = cards.filter((c) => c.status !== CardStatus.NEW).length;
+
+    return this.prisma.$transaction([
+      this.prisma.card.deleteMany({ where: { deckId: id, userId } }),
+      this.prisma.deck.delete({ where: { id } }),
+      this.prisma.userStats.update({
+        where: { userId },
+        data: {
+          totalWords: { decrement: total },
+          masteredWords: { decrement: mastered },
+          learnedWords: { decrement: learned },
+        },
+      }),
+    ]);
+  }
+
+  async getDeckAnalytics(deckId: string, userId: string) {
+    const [totalCards, masteredCards] = await Promise.all([
+      this.prisma.card.count({ where: { deckId, userId } }),
+      this.prisma.card.count({
+        where: { deckId, userId, status: CardStatus.MASTERED },
+      }),
+    ]);
+
+    return {
+      totalCards,
+      masteredCards,
+      progress:
+        totalCards > 0 ? Math.round((masteredCards / totalCards) * 100) : 0,
+    };
+  }
+
+  /**
+   * CREATE CARD MANUALLY
+   */
+  async createCardManually(deckId: string, dto: CreateCardDto, userId: string) {
+    const deck = await this.prisma.deck.findFirst({
+      where: { id: deckId, creatorId: userId },
+    });
+    if (!deck) throw new NotFoundException('Bộ thẻ không tồn tại');
+
+    const wordLower = dto.word.trim().toLowerCase();
+
+    // 1. Mồi UserStats (ngoài transaction để tránh lock table lâu)
+    await this.prisma.userStats.upsert({
+      where: { userId },
+      update: {},
+      create: {
+        userId,
+        totalWords: 0,
+        learnedWords: 0,
+        masteredWords: 0,
+        totalReviews: 0,
+      },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      // 2. Check trùng trong Transaction
+      const existing = await tx.card.findFirst({
+        where: { userId, word: wordLower },
+      });
+      if (existing)
+        throw new BadRequestException('Từ này đã có trong kho của bạn');
+
+      // 3. Tạo Card & Cập nhật Stats đồng thời
+      const card = await tx.card.create({
+        data: {
+          word: wordLower,
+          phonetic: dto.phonetic,
+          audioUrl: dto.audioUrl,
+          meanings: dto.meanings as unknown as Prisma.MeaningCreateInput[],
+          userId,
+          deckId,
+          status: CardStatus.NEW,
+          repetitions: 0,
+          easeFactor: 2.5,
+        },
+      });
+
+      await tx.userStats.update({
+        where: { userId },
+        data: { totalWords: { increment: 1 } },
+      });
+
+      return card;
+    });
+  }
+
+  /**
+   * BULK CREATE CARDS
+   */
+  async bulkCreateCardsWithAutoFill(
+    deckId: string,
+    words: string[],
+    userId: string,
+  ) {
+    const deck = await this.prisma.deck.findFirst({
+      where: { id: deckId, creatorId: userId },
+    });
+    if (!deck) throw new NotFoundException('Không tìm thấy bộ thẻ');
+
+    const uniqueInputWords = Array.from(
+      new Set(words.map((w) => w.trim().toLowerCase())),
+    ).filter(Boolean);
+
+    // Kiểm tra những từ đã có của USER này (tránh trùng lặp global)
+    const existingWords = await this.prisma.card.findMany({
+      where: { userId, word: { in: uniqueInputWords } },
+      select: { word: true },
+    });
+    const existingSet = new Set(existingWords.map((c) => c.word));
+    const wordsToProcess = uniqueInputWords.filter((w) => !existingSet.has(w));
+
+    if (wordsToProcess.length === 0) return { success: true, addedCount: 0 };
+
+    // Xử lý lấy data (giữ nguyên logic fetch của bạn)
+    const results = await Promise.all(
+      wordsToProcess.map(async (word) => {
+        try {
+          // Có thể thêm logic check cache từ các card công khai khác ở đây
+          return await this.getMergedData(word);
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    const validData = results.filter(
+      (r): r is NonNullable<typeof r> => r !== null,
+    );
+
+    if (validData.length > 0) {
+      // 1. Đảm bảo UserStats luôn tồn tại (Chống lỗi record not found)
+      // Chúng ta dùng upsert bên ngoài transaction để "mồi" dữ liệu nếu chưa có
+      await this.prisma.userStats.upsert({
+        where: { userId },
+        update: {}, // Không thay đổi gì nếu đã có
+        create: {
+          userId,
+          totalWords: 0,
+          learnedWords: 0,
+          masteredWords: 0,
+          totalReviews: 0,
+        },
+      });
+
+      // 2. Thực hiện Transaction an toàn
+      await this.prisma.$transaction([
+        this.prisma.card.createMany({
+          data: validData.map((data) => ({
+            word: data.word,
+            phonetic: data.phonetic ?? '',
+            audioUrl: data.audioUrl ?? '',
+            meanings: data.meanings as unknown as Prisma.MeaningCreateInput[],
+            userId,
+            deckId,
+            status: CardStatus.NEW,
+            nextReview: new Date(),
+            repetitions: 0,
+            easeFactor: 2.5,
+          })),
+        }),
+        this.prisma.userStats.update({
+          where: { userId },
+          data: { totalWords: { increment: validData.length } },
+        }),
+      ]);
+    }
+
+    return { success: true, addedCount: validData.length };
+  }
+
+  /**
+   * DELETE CARD
+   */
+  async deleteCard(cardId: string, userId: string) {
+    const card = await this.prisma.card.findFirst({
+      where: { id: cardId, userId },
+    });
+    if (!card) throw new NotFoundException('Thẻ không tồn tại');
+
+    return this.prisma.$transaction([
+      this.prisma.card.delete({ where: { id: cardId } }),
+      this.prisma.userStats.update({
+        where: { userId },
+        data: { totalWords: { decrement: 1 } },
+      }),
+    ]);
+  }
+
+  private async getMergedData(word: string) {
+    const cleanWord = word.trim().toLowerCase(); // Chuẩn hóa ngay từ đầu
+
+    const [viTranslation, publicData] = await Promise.all([
+      this.translateToVietnamese(cleanWord),
+      this.fetchPublicDictionary(cleanWord),
+    ]);
+
+    const meanings: MeaningDto[] = [];
+
+    // Luôn đẩy tiếng Việt vào đầu mảng
+    if (viTranslation) {
+      meanings.push({
+        partOfSpeech: 'Vietnamese',
+        definitions: [{ definition: viTranslation }],
+      });
+      this.logger.info(`[SUCCESS] Dịch từ "${word}": ${viTranslation}`);
+    } else {
+      this.logger.error(`[FAILED] Không dịch được từ "${word}"`);
+    }
+
+    if (publicData?.meanings?.length > 0) {
+      const firstMeaning = publicData.meanings[0];
+      meanings.push({
+        partOfSpeech: firstMeaning.partOfSpeech,
+        definitions: firstMeaning.definitions.slice(0, 2).map((d) => ({
+          definition: d.definition,
+          example: d.example || '',
+          synonyms: d.synonyms || [],
+          antonyms: d.antonyms || [],
+        })),
+      });
+    }
+
+    if (meanings.length === 0) return null;
+
+    return {
+      word: cleanWord, // Đảm bảo luôn lưu chữ thường
+      phonetic: publicData?.phonetic || null,
+      audioUrl: publicData?.phonetics?.find((p) => p.audio)?.audio || null,
+      meanings,
+    };
+  }
+
   private async translateToVietnamese(word: string): Promise<string | null> {
+    const trimmedWord = word.trim();
+    if (!trimmedWord) return null;
+
     try {
-      const res = await translate(word, { to: 'vi' });
-      return res.text;
-    } catch (error: unknown) {
-      this.logger.error({ word, error }, 'Google Translate Error');
+      const email = this.configService.get<string>('EMAIL_FROM') || 'guest';
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
+        trimmedWord,
+      )}&langpair=en|vi&de=${email}`;
+
+      const res = await fetch(url);
+
+      // Ép kiểu kết quả trả về từ .json()
+      const data = (await res.json()) as IMyMemoryResponse;
+
+      // Kiểm tra status (MyMemory có thể trả về string hoặc number)
+      if (Number(data.responseStatus) === 429) {
+        this.logger.warn({ word: trimmedWord }, 'MyMemory API Rate Limit Hit');
+        return null;
+      }
+
+      if (Number(data.responseStatus) !== 200) {
+        this.logger.error(
+          { status: data.responseStatus, details: data.responseDetails },
+          'MyMemory API Error',
+        );
+        return null;
+      }
+
+      const translation = data.responseData?.translatedText;
+
+      // Kiểm tra nếu không có bản dịch hoặc bị trả về chính từ gốc (kết quả rác)
+      if (
+        !translation ||
+        translation.toLowerCase() === trimmedWord.toLowerCase()
+      ) {
+        return null;
+      }
+
+      return translation;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        { word: trimmedWord, error: errorMessage },
+        'Translation failure',
+      );
       return null;
     }
   }
@@ -56,235 +428,5 @@ export class ManagementService {
     } catch {
       return null;
     }
-  }
-
-  private async getMergedData(word: string) {
-    const publicData = await this.fetchPublicDictionary(word);
-    if (!publicData) return null;
-
-    const viTranslation = await this.translateToVietnamese(word);
-    const meanings: MeaningDto[] = [];
-
-    if (viTranslation) {
-      meanings.push({
-        partOfSpeech: 'Vietnamese',
-        definitions: [
-          { definition: viTranslation, synonyms: [], antonyms: [] },
-        ],
-      });
-    }
-
-    if (publicData.meanings?.length > 0) {
-      const firstMeaning = publicData.meanings[0];
-      meanings.push({
-        partOfSpeech: firstMeaning.partOfSpeech,
-        definitions: firstMeaning.definitions.slice(0, 2).map((d) => ({
-          definition: d.definition,
-          example: d.example || undefined, // Chuyển null thành undefined để khớp DTO
-          synonyms: d.synonyms || [],
-          antonyms: d.antonyms || [],
-        })),
-      });
-    }
-
-    return {
-      word: publicData.word.toLowerCase(),
-      phonetic:
-        publicData.phonetic ||
-        publicData.phonetics.find((p) => p.text)?.text ||
-        null,
-      audioUrl: publicData.phonetics.find((p) => p.audio)?.audio || null,
-      meanings,
-    };
-  }
-
-  async bulkCreateCardsWithAutoFill(deckId: string, words: string[]) {
-    if (!words?.length) throw new BadRequestException('Danh sách trống');
-
-    const deck = await this.prisma.deck.findUnique({
-      where: { id: deckId },
-      select: { creatorId: true, cards: { select: { word: true } } },
-    });
-    if (!deck) throw new NotFoundException('Không tìm thấy bộ thẻ');
-
-    const uniqueWords = Array.from(
-      new Set(words.map((w) => w.trim().toLowerCase())),
-    ).filter(Boolean);
-
-    const [existingUserCards, globalExistingCards] = await Promise.all([
-      this.prisma.card.findMany({
-        where: { userId: deck.creatorId, word: { in: uniqueWords } },
-      }),
-      this.prisma.card.findMany({
-        where: { word: { in: uniqueWords } },
-        distinct: ['word'],
-      }),
-    ]);
-
-    const userCardsMap = new Map(existingUserCards.map((c) => [c.word, c]));
-    const globalCardsMap = new Map(globalExistingCards.map((c) => [c.word, c]));
-
-    const results = await Promise.all(
-      uniqueWords.map(async (word) => {
-        try {
-          if (userCardsMap.has(word)) return null;
-
-          const existingGlobal = globalCardsMap.get(word);
-          if (existingGlobal) {
-            return {
-              word: existingGlobal.word,
-              phonetic: existingGlobal.phonetic,
-              audioUrl: existingGlobal.audioUrl,
-              // Ép kiểu về interface nội bộ để xử lý trung gian
-              meanings: existingGlobal.meanings as unknown as MeaningDto[],
-            };
-          }
-
-          return await this.getMergedData(word);
-        } catch (error: unknown) {
-          // FIX: Ép kiểu error về unknown và xử lý để tránh 'any' unsafe assignment
-          const errorMessage =
-            error instanceof Error ? error.message : 'Unknown error';
-          this.logger.error(
-            { word, error: errorMessage },
-            'Error processing card',
-          );
-          return null;
-        }
-      }),
-    );
-
-    const validData = results.filter(
-      (r): r is NonNullable<typeof r> => r !== null,
-    );
-
-    if (validData.length === 0) {
-      return {
-        success: true,
-        addedCount: 0,
-        message: 'Tất cả từ vựng đã tồn tại hoặc không hợp lệ',
-      };
-    }
-
-    try {
-      const createdItems = await this.prisma.$transaction(
-        validData.map((data) =>
-          this.prisma.card.create({
-            data: {
-              word: data.word,
-              phonetic: data.phonetic,
-              audioUrl: data.audioUrl,
-              /**
-               * FIX TS2322 & ESLint Unsafe Assignment:
-               * Sử dụng Prisma.MeaningCreateInput[] thay vì any.
-               * Cách này vừa làm Prisma hài lòng, vừa làm ESLint hài lòng.
-               */
-              meanings: data.meanings as Prisma.MeaningCreateInput[],
-              user: { connect: { id: deck.creatorId } },
-              deck: { connect: { id: deckId } },
-            },
-          }),
-        ),
-      );
-
-      return {
-        success: true,
-        addedCount: createdItems.length,
-        skippedCount: uniqueWords.length - createdItems.length,
-      };
-    } catch (err: unknown) {
-      const finalError =
-        err instanceof Error ? err.message : 'Database transaction failed';
-      this.logger.error({ error: finalError });
-      throw new BadRequestException('Lỗi hệ thống khi lưu thẻ vựng.');
-    }
-  }
-  // --- Các hàm quản lý Deck ---
-  async createDeck(creatorId: string, dto: CreateDeckDto) {
-    return this.prisma.deck.create({ data: { ...dto, creatorId } });
-  }
-
-  async softDeleteDeck(id: string) {
-    return this.prisma.$transaction([
-      this.prisma.card.deleteMany({ where: { deckId: id } }),
-      this.prisma.deck.delete({ where: { id } }),
-    ]);
-  }
-
-  async findTeacherDecks(teacherId: string) {
-    return this.prisma.deck.findMany({
-      where: { creatorId: teacherId },
-      include: { _count: { select: { cards: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async findPublicDecks(search?: string, tag?: string) {
-    return this.prisma.deck.findMany({
-      where: {
-        isPublic: true,
-        AND: [
-          search ? { title: { contains: search, mode: 'insensitive' } } : {},
-          tag ? { levelTag: tag } : {},
-        ],
-      },
-      include: {
-        _count: { select: { cards: true } },
-        creator: { select: { name: true, email: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-  // Thêm vào ManagementService
-  async getDeckWithCards(id: string) {
-    const deck = await this.prisma.deck.findUnique({
-      where: { id },
-      include: {
-        cards: {
-          select: {
-            word: true,
-            phonetic: true,
-            audioUrl: true,
-            meanings: true,
-          },
-        },
-        creator: { select: { name: true } },
-      },
-    });
-
-    if (!deck) throw new NotFoundException('Không tìm thấy bộ thẻ');
-    return deck;
-  }
-
-  async updateDeckStatus(id: string, isPublic: boolean) {
-    return this.prisma.deck.update({
-      where: { id },
-      data: { isPublic, updatedAt: new Date() },
-    });
-  }
-
-  async updateCard(cardId: string, dto: CreateCardDto) {
-    // Kiểm tra card tồn tại
-    const card = await this.prisma.card.findUnique({ where: { id: cardId } });
-    if (!card) throw new NotFoundException('Không tìm thấy thẻ từ vựng');
-
-    return this.prisma.card.update({
-      where: { id: cardId },
-      data: {
-        word: dto.word.toLowerCase(),
-        phonetic: dto.phonetic,
-        audioUrl: dto.audioUrl,
-        // Ép kiểu chính xác để Prisma MongoDB chấp nhận Composite Type
-        meanings: dto.meanings as Prisma.MeaningCreateInput[],
-        updatedAt: new Date(),
-      },
-    });
-  }
-
-  async deleteCard(cardId: string) {
-    const card = await this.prisma.card.findUnique({ where: { id: cardId } });
-    if (!card) throw new NotFoundException('Không tìm thấy thẻ từ vựng');
-
-    return this.prisma.card.delete({ where: { id: cardId } });
   }
 }

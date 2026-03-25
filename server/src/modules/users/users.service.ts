@@ -1,15 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { UpdateProfileDto, AdminUpdateUserDto } from './dto/users.dto';
-import { Prisma } from '@prisma/client';
 
+// src/modules/users/users.service.ts
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
-
-  /* =========================
-        PROFILE
-    ========================= */
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -19,96 +15,52 @@ export class UsersService {
         email: true,
         name: true,
         role: true,
-        vocabXp: true,
         streak: true,
-        lastActive: true,
+        lastActiveAt: true, // Sửa từ lastActive thành lastActiveAt
         createdAt: true,
+        stats: true, // Lấy toàn bộ stats định lượng (masteredWords, totalReviews...)
       },
     });
 
-    if (!user) throw new NotFoundException('User không tồn tại');
+    if (!user) throw new NotFoundException('Người dùng không tồn tại');
     return user;
+  }
+
+  async getLeaderboard() {
+    // Xếp hạng dựa trên số từ đã Mastered (Định lượng thực tế)
+    return this.prisma.userStats.findMany({
+      orderBy: { masteredWords: 'desc' },
+      take: 10,
+      include: {
+        user: {
+          select: { name: true, email: true },
+        },
+      },
+    });
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     return this.prisma.user.update({
       where: { id: userId },
-      data: {
-        name: dto.name,
-        // thêm field khác nếu cần, tránh spread dto
-      },
+      data: { name: dto.name },
     });
   }
-
-  /* =========================
-        XP (simple version)
-    ========================= */
-
-  async addXp(userId: string, amount: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-
-    if (!user) return;
-
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        vocabXp: { increment: amount },
-      },
-    });
-  }
-
-  /* =========================
-        LEADERBOARD
-    ========================= */
-
-  async getLeaderboard() {
-    return this.prisma.user.findMany({
-      orderBy: { vocabXp: 'desc' },
-      take: 10,
-      select: {
-        id: true,
-        name: true,
-        vocabXp: true,
-        streak: true,
-      },
-    });
-  }
-
-  /* =========================
-        ADMIN
-    ========================= */
 
   async findAll() {
     return this.prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        vocabXp: true,
-        streak: true,
-        createdAt: true,
-      },
+      include: { stats: true },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
+  // Admin update vẫn giữ nguyên logic check undefined để tránh ghi đè null
   async adminUpdateUser(id: string, dto: AdminUpdateUserDto) {
-    const data: Prisma.UserUpdateInput = {};
-
-    if (dto.role !== undefined) {
-      data.role = dto.role;
-    }
-
-    if (dto.name !== undefined) {
-      data.name = dto.name;
-    }
-
     return this.prisma.user.update({
       where: { id },
-      data,
+      data: {
+        ...(dto.role && { role: dto.role }),
+        ...(dto.name && { name: dto.name }),
+      },
     });
   }
 }

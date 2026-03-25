@@ -9,7 +9,6 @@ import { UpdateProfileDto, AdminUpdateUserDto } from './dto/users.dto';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-
   // PROFILE
   @Get('me')
   async getProfile(@CurrentUser('id') userId: string) {

@@ -11,6 +11,7 @@ import { ROLE_NAV_CONFIG } from "@/enum/nav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/hooks/useAuthContext";
+import { useEffect, useState } from "react";
 
 interface AppSidebarProps {
   role: "ADMIN" | "TEACHER" | "STUDENT";
@@ -18,11 +19,19 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ role, onClose }: AppSidebarProps) {
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const locale = useLocale();
   const { setTheme, theme } = useTheme();
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      setMounted(true);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   const t = useTranslations("nav");
   const tSidebar = useTranslations("sidebar");
@@ -142,7 +151,10 @@ export function AppSidebar({ role, onClose }: AppSidebarProps) {
             variant="outline"
             className="flex-1 h-9 rounded-xl font-bold text-[11px] tracking-wide border-sidebar-border bg-sidebar hover:bg-primary/5 hover:border-primary/30 text-foreground transition-all"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-            {theme === "dark" ? (
+            {/* SỬA TẠI ĐÂY: Kiểm tra mounted để tránh Hydration Error */}
+            {!mounted ? (
+              <div className="w-4 h-4 mr-2 animate-pulse bg-muted rounded-full" />
+            ) : theme === "dark" ? (
               <>
                 <Sun className="h-4 w-4 mr-2 text-primary" strokeWidth={2.5} />
                 <span>{tSidebar("light").toUpperCase()}</span>

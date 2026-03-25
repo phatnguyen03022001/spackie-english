@@ -1,24 +1,28 @@
 import './instrument';
 import 'dotenv/config';
+import { AppModule } from './app.module';
 import { NestFactory } from '@nestjs/core';
 import { RequestMethod } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
-
-import { AppModule } from './app.module';
 import { ResponseInterceptor } from '@/common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
-import { GlobalValidationPipe } from '@/common/pipes/validation.pipe'; // 1. Import pipe đã custom
+import { GlobalValidationPipe } from '@/common/pipes/validation.pipe';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    bufferLogs: false,
-    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    logger: ['error', 'warn'],
   });
 
+  app.enableShutdownHooks();
+
+  app.set('trust proxy', 1);
+
   const logger = app.get(Logger);
-  app.useLogger(app.get(Logger));
+  app.useLogger(logger);
 
   app.useGlobalInterceptors(
     new ResponseInterceptor(),
@@ -30,7 +34,13 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // 1. Setup Swagger TRƯỚC khi setGlobalPrefix
+  // prefix
+  const prefix = configService.get<string>('app.prefix') || 'api';
+  app.setGlobalPrefix(prefix, {
+    exclude: [{ path: 'health', method: RequestMethod.GET }],
+  });
+
+  // swagger
   const isSwaggerEnabled = configService.get<boolean>('swagger.enabled');
   const swaggerPath = configService.get<string>('swagger.path') || 'docs';
 
@@ -45,42 +55,47 @@ async function bootstrap() {
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup(swaggerPath, app, document);
+
+    SwaggerModule.setup(swaggerPath, app, document, {
+      useGlobalPrefix: true,
+    });
   }
 
-  // 2. Setup Global Prefix với cách viết route mới
-  const prefix = configService.get<string>('app.prefix') || 'api';
-  app.setGlobalPrefix(prefix, {
-    exclude: [
-      { path: '', method: RequestMethod.GET },
-      { path: 'health', method: RequestMethod.GET },
-      // Sửa lỗi cảnh báo: sử dụng cú pháp route mới cho path-to-regexp
-      { path: swaggerPath, method: RequestMethod.ALL },
-      { path: `${swaggerPath}/(.*)`, method: RequestMethod.ALL },
-    ],
-  });
-
-  // 3. CORS
+  // cors
   app.enableCors({
-    origin: configService.get<string | string[]>('cors.origin'),
+    origin: configService.get<string | string[]>('cors.origin') ?? true,
     credentials: true,
   });
 
   const port = configService.get<number>('app.port') || 8000;
   await app.listen(port);
 
-  const env = configService.get<string>('app.env');
+  // logging
+  const env = configService.get<string>('app.env') || 'development';
+  const url = `http://localhost:${port}`;
+  const swaggerUrl = `${url}/${prefix}/${swaggerPath}`;
+  const uptime = (process.uptime() * 1000).toFixed(0);
 
-  logger.log('>>> ENV VALUE:', env);
+  logger.log('─'.repeat(50));
+  logger.log(
+    {
+      event: 'BOOTSTRAP',
+      environment: env,
+      port,
+      prefix,
+      uptime: `${uptime}ms`,
+    },
+    'NestApplication',
+  );
+  logger.log('─'.repeat(50));
 
-  logger.log(
-    `🚀 Server is running on: http://localhost:${port}/${prefix}`,
-    'Bootstrap',
-  );
-  logger.log(
-    `📝 Swagger docs: http://localhost:${port}/${swaggerPath}`,
-    'Bootstrap',
-  );
+  logger.log(`🚀 Spackie API    : ${url}/${prefix}`);
+  if (isSwaggerEnabled) {
+    logger.log(`📝 Swagger UI     : ${swaggerUrl}`);
+    logger.log(`📂 Swagger JSON   : ${swaggerUrl}-json`);
+  }
+  logger.log(`🛠️  Environment    : ${env.toUpperCase()}`);
+  logger.log('─'.repeat(50));
 }
 
 void bootstrap();

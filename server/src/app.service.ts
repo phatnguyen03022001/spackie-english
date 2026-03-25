@@ -1,11 +1,9 @@
 // src/app.service.ts
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class AppService {
-  private readonly logger = new Logger(AppService.name);
   getHome(): string {
-    this.logger.debug('Test thử log DEBUG xem có hiện không?');
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -213,8 +211,8 @@ export class AppService {
         </div>
 
         <div class="btn-group">
-            <a href="/docs" class="btn btn-primary">Explore API Docs</a>
-            <a href="/docs-json" class="btn btn-outline">Explore API Json</a>
+            <a href="/api/docs" class="btn btn-primary">Explore API Docs</a>
+            <a href="/api/docs-json" class="btn btn-outline">Explore API Json</a>
             <a href="https://github.com/phatnguyen03022001/spackie-english" target="_blank" class="btn btn-outline">GitHub</a>
         </div>
 

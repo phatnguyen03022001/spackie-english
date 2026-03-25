@@ -7,19 +7,30 @@ import {
   Delete,
   Body,
   Param,
+  ParseBoolPipe,
 } from '@nestjs/common';
 import { ManagementService } from '../services/management.service';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
-import { CreateCardDto, CreateDeckDto } from '../dto/vocab.dto';
+import {
+  BulkCreateCardsDto,
+  CreateCardDto,
+  CreateDeckDto,
+  UpdateCardDto,
+  UpdateDeckDto,
+} from '../dto/vocab.dto';
+import { AnalyticsService } from '../services/analytics.service';
 
 @Controller('management/vocab')
+@Roles(UserRole.TEACHER, UserRole.ADMIN) // Default roles cho toàn bộ controller
 export class ManagementController {
-  constructor(private readonly managementService: ManagementService) {}
+  constructor(
+    private readonly managementService: ManagementService,
+    private readonly analyticsService: AnalyticsService,
+  ) {}
 
   @Post('decks')
-  @Roles(UserRole.TEACHER, UserRole.ADMIN)
   async createMasterDeck(
     @Body() dto: CreateDeckDto,
     @CurrentUser('id') teacherId: string,
@@ -27,58 +38,88 @@ export class ManagementController {
     return this.managementService.createDeck(teacherId, dto);
   }
 
-  @Post('decks/:id/cards/auto-bulk')
-  @Roles(UserRole.TEACHER, UserRole.ADMIN)
-  async bulkImportCardsAuto(
-    @Param('id') deckId: string,
-    @Body('words') words: string[],
+  @Get('decks')
+  async getMyDecks(@CurrentUser('id') teacherId: string) {
+    // Trả về danh sách bộ thẻ do Teacher/Admin này tạo ra
+    return this.managementService.findTeacherDecks(teacherId);
+  }
+
+  @Get('decks/:id')
+  async getDeckDetail(@Param('id') id: string) {
+    return this.managementService.getDeckWithCards(id);
+  }
+
+  @Patch('decks/:id')
+  async updateDeckInfo(
+    @Param('id') id: string,
+    @Body() dto: UpdateDeckDto,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.managementService.bulkCreateCardsWithAutoFill(deckId, words);
+    // Service nên kiểm tra quyền sở hữu (ownership) trước khi update
+    return this.managementService.updateDeckMetadata(id, dto, userId);
+  }
+
+  @Delete('decks/:id')
+  async deleteDeck(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    // Thực hiện soft delete hoặc xóa master deck
+    return this.managementService.deleteMasterDeck(id, userId);
   }
 
   @Patch('decks/:id/status')
   @Roles(UserRole.ADMIN)
-  async moderateDeck(
+  async moderateDeckStatus(
     @Param('id') id: string,
-    @Body('isPublic') isPublic: boolean,
-  ): Promise<{ id: string; isPublic: boolean }> {
-    // ← explicit return type (or use your DTO)
-    await this.managementService.updateDeckStatus(id, isPublic); // ← add await here
-
-    // Optional: return something meaningful for the client
-    return { id, isPublic };
+    @Body('isPublic', ParseBoolPipe) isPublic: boolean,
+  ) {
+    // Chỉ Admin mới có thể duyệt một bộ thẻ để đưa lên Public Discovery
+    return this.managementService.updateDeckStatus(id, isPublic);
   }
 
-  @Delete('decks/:id')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
-  async deleteDeck(@Param('id') id: string) {
-    return this.managementService.softDeleteDeck(id);
+  @Post('decks/:id/cards')
+  async addCardToDeck(
+    @Param('id') deckId: string,
+    @Body() dto: CreateCardDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.managementService.createCardManually(deckId, dto, userId);
   }
 
-  @Get('decks')
-  @Roles(UserRole.TEACHER, UserRole.ADMIN)
-  async getMyDecks(@CurrentUser('id') teacherId: string) {
-    return this.managementService.findTeacherDecks(teacherId);
+  @Post('decks/:id/cards/auto-bulk')
+  async bulkImportCardsAuto(
+    @Param('id') deckId: string,
+    @Body() dto: BulkCreateCardsDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    // Sử dụng logic dịch tự động và fetch data từ Dictionary API
+    return this.managementService.bulkCreateCardsWithAutoFill(
+      deckId,
+      dto.words,
+      userId,
+    );
   }
 
   @Patch('cards/:cardId')
-  @Roles(UserRole.TEACHER, UserRole.ADMIN)
   async updateCard(
     @Param('cardId') cardId: string,
-    @Body() dto: CreateCardDto, // Tái sử dụng CreateCardDto hoặc tạo UpdateCardDto
+    @Body() dto: UpdateCardDto,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.managementService.updateCard(cardId, dto);
-  }
-
-  @Get('decks/:id/preview')
-  async getDeckPreview(@Param('id') deckId: string) {
-    // Xem trước nội dung bộ thẻ trước khi Enroll
-    return this.managementService.getDeckWithCards(deckId);
+    return this.managementService.updateCard(cardId, dto, userId);
   }
 
   @Delete('cards/:cardId')
-  @Roles(UserRole.TEACHER, UserRole.ADMIN)
-  async deleteCard(@Param('cardId') cardId: string) {
-    return this.managementService.deleteCard(cardId);
+  async deleteCard(
+    @Param('cardId') cardId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.managementService.deleteCard(cardId, userId);
+  }
+
+  @Get('decks/:id/analytics')
+  async getDeckLearningAnalytics(
+    @Param('id') deckId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.analyticsService.getDeckLearningAnalytics(deckId, userId);
   }
 }

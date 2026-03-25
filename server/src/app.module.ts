@@ -18,6 +18,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { VocabModule } from './modules/vocab/vocab.module';
+import { IncomingMessage, ServerResponse } from 'http';
 
 @Module({
   imports: [
@@ -38,6 +39,30 @@ import { VocabModule } from './modules/vocab/vocab.module';
         return {
           pinoHttp: {
             level: isProduction ? 'info' : 'debug',
+
+            // 1. NGĂN CHẶN DOUBLE LOGGING (Type-safe)
+            customLogLevel: (
+              _req: IncomingMessage,
+              res: ServerResponse,
+              err?: Error,
+            ) => {
+              // Nếu status >= 400 hoặc có lỗi, trả về 'silent'
+              // để Pino Middleware không tự in dòng "request completed" nữa.
+              // Lúc này chỉ có duy nhất log từ HttpExceptionFilter của bạn xuất hiện.
+              if (res.statusCode >= 400 || err) return 'silent';
+              return 'info';
+            },
+
+            redact: {
+              paths: [
+                'req.headers.authorization',
+                'req.headers.cookie',
+                'req.body.password',
+                'req.body.confirmPassword',
+                'req.body.newPassword',
+              ],
+              placeholder: '***HIDDEN***',
+            },
 
             mixin() {
               const span = trace.getSpan(context.active());

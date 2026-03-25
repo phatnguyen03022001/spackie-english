@@ -1,0 +1,47 @@
+============================================================
+HỆ THỐNG QUẢN LÝ HỌC TẬP (V2) - SPACKIE ENGLISH
+============================================================
+
+1. TRIẾT LÝ THAY ĐỔI:
+------------------------------------------------------------
+* Từ bỏ XP (Gamification ảo): Không tập trung vào điểm số tích lũy không rõ ràng.
+* Hướng đến Quantitative (Định lượng): Tập trung vào số lượng từ vựng thực tế, 
+  số lượt ôn tập và trạng thái ghi nhớ của từ (New/Learning/Mastered).
+* Chuyển dịch Logic (Client-side Power): Client (NextJS) xử lý thuật toán học tập 
+  (SM-2), Server (NestJS) đóng vai trò kho lưu trữ và đồng bộ hóa.
+
+2. CẤU TRÚC DỮ LIỆU CỐT LÕI (PRISMA/MONGODB):
+------------------------------------------------------------
+* Card (Thẻ từ vựng): Lưu word, meanings (JSON), SM-2 stats (interval, easeFactor, 
+  repetitions, nextReview).
+* UserStats (Snapshot): Lưu tổng từ đã học, tổng từ đã thuộc (Mastered), 
+  tổng số lượt ôn tập, streak học tập.
+* StudyLog (Lịch sử): Lưu vết mỗi phiên học (startTime, endTime, số card đã xử lý).
+
+3. QUY TRÌNH VẬN HÀNH (FETCH & FLUSH):
+------------------------------------------------------------
+* Giai đoạn 1 (Fetch): 
+    - Client gọi API lấy "gói" từ vựng cần học dựa trên nextReview <= hiện tại.
+    - Server đóng gói JSON gửi về toàn bộ dữ liệu cần thiết.
+* Giai đoạn 2 (Learn - Offline-friendly):
+    - Client (NextJS) điều khiển UI/UX. 
+    - Khi người dùng đánh giá từ (Easy/Hard...), Client tự tính toán nextReview mới 
+      ngay lập tức mà không gọi API lẻ.
+* Giai đoạn 3 (Flush/Sync):
+    - Khi kết thúc phiên, Client gửi 1 bản JSON tổng hợp (Batch Update).
+    - Server cập nhật hàng loạt Card và cộng dồn chỉ số vào UserStats trong 1 Transaction.
+
+4. CÁC API TRỌNG TÂM:
+------------------------------------------------------------
+* GET /vocab/decks/:id/session  -> Lấy danh sách từ cần học/ôn.
+* POST /vocab/sync-session      -> Gửi kết quả học tập hàng loạt lên Server.
+* GET /vocab/user-stats         -> Lấy số liệu tổng hợp cho Dashboard.
+* CRUD cá nhân                  -> Thêm/Xóa/Sửa Card vẫn thực hiện API đơn lẻ.
+
+5. ĐỊNH HƯỚNG BẢO MẬT & PHÁT TRIỂN:
+------------------------------------------------------------
+* Hiện tại: Ưu tiên tính năng (MVP), chưa cần mã hóa JSON sync để tối ưu tốc độ.
+* Kiểm soát: Dùng JWT và kiểm tra quyền sở hữu (ownership) card trên Server.
+* Tương lai: Thêm mã hóa dữ liệu gửi lên và tích hợp báo cáo học tập (Heatmap).
+
+============================================================

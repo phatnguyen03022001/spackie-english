@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "tree": "tree -I \"node_modules|.next|.git|dist|.turbo|.swc|out\" -F -L 3"
+    "tree": "tree -I \"node_modules|.next|.git|dist|.turbo|.swc|out\" -F -L 10"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -15,6 +15,7 @@
     "axios": "^1.13.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "input-otp": "^1.4.2",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.577.0",
@@ -26,6 +27,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.2",
+    "recharts": "^3.8.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",

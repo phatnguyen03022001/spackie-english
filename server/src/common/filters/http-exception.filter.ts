@@ -33,7 +33,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       status,
       path: request.originalUrl,
       method: request.method,
-      body: request.body,
       query: request.query,
       params: request.params,
       message,

@@ -1,24 +1,25 @@
+// src/modules/vocab/services/review.service.ts
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '@/modules/prisma/prisma.service';
-import { UsersService } from '@/modules/users/users.service';
 import { CardStatus, Prisma } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { SyncSessionDto } from '../dto/vocab.dto';
 
 @Injectable()
 export class ReviewService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly usersService: UsersService,
     @InjectPinoLogger(ReviewService.name)
     private readonly logger: PinoLogger,
   ) {}
 
   /**
-   * ENROLL DECK: Clone cards từ Master Deck sang lộ trình của User
+   * ENROLL DECK
+   * Copy cards từ Master Deck sang kho của User
    */
   async enrollDeck(userId: string, deckId: string) {
     const masterDeck = await this.prisma.deck.findUnique({
@@ -34,147 +35,189 @@ export class ReviewService {
       where: { userId },
       select: { word: true },
     });
-    const existingWords = new Set(userExistingCards.map((c) => c.word));
 
+    const existingWords = new Set(userExistingCards.map((c) => c.word));
     const newCards = masterDeck.cards.filter(
       (card) => !existingWords.has(card.word),
     );
 
-    if (newCards.length === 0) {
-      return {
-        message: 'Bạn đã sở hữu tất cả từ vựng trong bộ thẻ này',
-        totalCards: 0,
-      };
-    }
+    if (newCards.length === 0)
+      return { message: 'Bạn đã sở hữu tất cả từ', added: 0 };
 
-    try {
-      await this.prisma.$transaction(
-        newCards.map((card) =>
-          this.prisma.card.create({
-            data: {
-              word: card.word,
-              phonetic: card.phonetic,
-              audioUrl: card.audioUrl,
-              // Sử dụng unknown trước khi ép kiểu về Prisma Input để an toàn với ESLint
-              meanings: card.meanings as unknown as Prisma.MeaningCreateInput[],
-              user: { connect: { id: userId } },
-              deck: { connect: { id: deckId } },
-              status: CardStatus.NEW,
-              interval: 0,
-              repetition: 0,
-              easeFactor: 2.5,
-              nextReview: new Date(),
-            },
-          }),
-        ),
-      );
+    await this.prisma.$transaction([
+      this.prisma.card.createMany({
+        data: newCards.map((card) => ({
+          word: card.word,
+          phonetic: card.phonetic,
+          audioUrl: card.audioUrl,
+          meanings: card.meanings as unknown as Prisma.MeaningCreateInput[],
+          userId,
+          deckId,
+          status: CardStatus.NEW,
+          repetitions: 0, // FIX: s
+          easeFactor: 2.5,
+          nextReview: new Date(),
+        })),
+      }),
+      this.prisma.userStats.update({
+        where: { userId },
+        data: { totalWords: { increment: newCards.length } },
+      }),
+    ]);
 
-      return {
-        message: `Đã thêm ${newCards.length} từ mới từ bộ thẻ "${masterDeck.title}"`,
-        totalCards: newCards.length,
-      };
-    } catch (error: unknown) {
-      this.logger.error({ error }, 'Enroll Deck Transaction Failed');
-      throw new BadRequestException('Không thể kích hoạt bộ thẻ này.');
-    }
+    return { message: `Đã thêm ${newCards.length} từ`, added: newCards.length };
   }
 
   /**
-   * PROCESS ANSWER: Thuật toán Spaced Repetition (SM-2)
+   * SYNC SESSION PROGRESS
+   * Quan trọng: Xóa XP, xóa ReviewLog, dùng UserStats
    */
-  async processAnswer(userId: string, cardId: string, grade: number) {
-    const card = await this.prisma.card.findFirst({
-      where: { id: cardId, userId },
+  // src/modules/vocab/services/review.service.ts
+
+  async syncSessionProgress(userId: string, dto: SyncSessionDto) {
+    const { results, sessionId, minutesSpent = 0 } = dto;
+
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          for (const res of results) {
+            await tx.card.update({
+              where: { id: res.cardId, userId },
+              data: {
+                status: res.status,
+                interval: res.interval,
+                repetitions: res.repetitions,
+                easeFactor: res.easeFactor,
+                nextReview: new Date(res.nextReview),
+                lastReviewedAt: new Date(),
+                lastRating: res.rating,
+              },
+            });
+          }
+
+          await tx.learningSession.update({
+            where: { id: sessionId, userId },
+            data: {
+              endTime: new Date(),
+              cardsProcessed: results.length,
+              minutesSpent,
+              rawResults: results as unknown as Prisma.InputJsonValue,
+            },
+          });
+
+          const masteredThisSession = results.filter(
+            (r) => r.status === CardStatus.MASTERED,
+          ).length;
+          const newlyLearned = results.filter(
+            (r) => r.repetitions === 1,
+          ).length;
+
+          await tx.userStats.update({
+            where: { userId },
+            data: {
+              totalReviews: { increment: results.length },
+              masteredWords: { increment: masteredThisSession },
+              learnedWords: { increment: newlyLearned },
+            },
+          });
+
+          return { success: true, processed: results.length };
+        },
+        { timeout: 15000 },
+      );
+    } catch (error) {
+      this.logger.error(error, 'Sync failed');
+      throw new BadRequestException('Đồng bộ thất bại.');
+    }
+  }
+
+  async unenrollDeck(userId: string, deckId: string) {
+    const cardsToDelete = await this.prisma.card.findMany({
+      where: { userId, deckId },
+      select: { status: true },
     });
 
-    if (!card) throw new NotFoundException('Thẻ không tồn tại');
+    if (cardsToDelete.length === 0) return { success: true };
 
-    let { interval, repetition, easeFactor, status } = card;
-    let nextReview = new Date();
+    const total = cardsToDelete.length;
+    const mastered = cardsToDelete.filter(
+      (c) => c.status === CardStatus.MASTERED,
+    ).length;
+    const learned = cardsToDelete.filter(
+      (c) => c.status !== CardStatus.NEW,
+    ).length;
 
-    if (grade < 3) {
-      repetition = 0;
-      interval = 0;
-      status = CardStatus.LAPSED;
-      nextReview = new Date(Date.now() + 10 * 60 * 1000);
+    await this.prisma.$transaction([
+      this.prisma.card.deleteMany({ where: { userId, deckId } }),
+      this.prisma.userStats.update({
+        where: { userId },
+        data: {
+          totalWords: { decrement: total },
+          masteredWords: { decrement: mastered },
+          learnedWords: { decrement: learned },
+        },
+      }),
+    ]);
+    return { success: true };
+  }
 
-      if (grade === 1) easeFactor = Math.max(1.3, easeFactor - 0.2);
-    } else {
-      if (repetition === 0) {
-        interval = grade === 4 ? 4 : 1;
-      } else if (repetition === 1) {
-        interval = 6;
-      } else {
-        interval = Math.round(interval * easeFactor);
-      }
-
-      repetition++;
-      status = CardStatus.REVIEW;
-
-      nextReview = new Date();
-      nextReview.setUTCHours(0, 0, 0, 0);
-      nextReview.setDate(nextReview.getDate() + interval);
-
-      if (grade === 4) easeFactor += 0.15;
-    }
-
-    return this.prisma.card.update({
-      where: { id: cardId },
+  /**
+   * CREATE SESSION
+   */
+  async createLearningSession(userId: string, deckId: string) {
+    const session = await this.prisma.learningSession.create({
       data: {
-        interval,
-        repetition,
-        easeFactor,
-        status,
-        nextReview,
-        updatedAt: new Date(),
+        userId,
+        deckId,
+        startTime: new Date(),
+        // status: 'ONGOING' <-- XÓA VÌ SCHEMA KHÔNG CÓ
       },
     });
-  }
 
-  /**
-   * BULK SYNC: Đồng bộ kết quả hàng loạt từ Next.js
-   */
-  async bulkProcessAnswers(
-    userId: string,
-    results: { cardId: string; grade: number }[],
-  ) {
-    if (!results.length) return { success: true, xpEarned: 0 };
-
-    let totalXpEarned = 0;
-
-    try {
-      for (const res of results) {
-        await this.processAnswer(userId, res.cardId, res.grade);
-        if (res.grade >= 3) totalXpEarned += 10;
-      }
-
-      await this.usersService.addXp(userId, totalXpEarned);
-
-      return { success: true, xpEarned: totalXpEarned };
-    } catch (error: unknown) {
-      this.logger.error({ error }, 'Bulk Sync Failed');
-      throw new BadRequestException('Đồng bộ kết quả thất bại.');
-    }
-  }
-
-  /**
-   * GET TODAY REVIEWS: Lấy danh sách từ cần học hôm nay
-   */
-  async getTodayReviews(userId: string) {
-    return this.prisma.card.findMany({
+    const cards = await this.prisma.card.findMany({
       where: {
         userId,
-        nextReview: { lte: new Date() },
+        deckId,
+        OR: [{ status: CardStatus.NEW }, { nextReview: { lte: new Date() } }],
       },
-      orderBy: [{ status: 'desc' }, { nextReview: 'asc' }],
+      take: 50,
+    });
+
+    return { sessionId: session.id, cards };
+  }
+
+  async cancelSession(userId: string, sessionId: string) {
+    return this.prisma.learningSession.update({
+      where: { id: sessionId, userId },
+      data: {
+        endTime: new Date(),
+        // status: 'CANCELLED' <-- XÓA VÌ SCHEMA KHÔNG CÓ
+      },
     });
   }
 
-  /**
-   * GET ENROLLED DECKS: Lấy danh sách bộ thẻ User đang học
-   */
+  // Thống kê Heatmap (Sửa lại logic lọc vì không có status 'COMPLETED')
+  async getHeatmap(userId: string) {
+    const sessions = await this.prisma.learningSession.findMany({
+      where: {
+        userId,
+        endTime: { not: null }, // Thay thế cho status: 'COMPLETED'
+      },
+      select: { startTime: true, cardsProcessed: true },
+    });
+
+    const heatmap: Record<string, number> = {};
+    sessions.forEach((s) => {
+      const date = s.startTime.toISOString().split('T')[0];
+      heatmap[date] = (heatmap[date] || 0) + s.cardsProcessed;
+    });
+    return heatmap;
+  }
+  async getUserStats(userId: string) {
+    return this.prisma.userStats.findUnique({ where: { userId } });
+  }
+
   async getEnrolledDecks(userId: string) {
-    // FIX: Loại bỏ 'as string' dư thừa và lọc null bằng filter(Boolean)
     const cardDecks = await this.prisma.card.findMany({
       where: { userId, deckId: { not: null } },
       distinct: ['deckId'],
@@ -183,49 +226,44 @@ export class ReviewService {
 
     const deckIds = cardDecks
       .map((c) => c.deckId)
-      .filter((id): id is string => id !== null);
+      .filter((id): id is string => !!id);
 
     return this.prisma.deck.findMany({
       where: { id: { in: deckIds } },
-      include: {
-        _count: { select: { cards: true } },
+      include: { _count: { select: { cards: true } } },
+    });
+  }
+
+  async getReviewForecast(userId: string) {
+    // 1. Lấy tất cả các thẻ đang trong quá trình học (không phải thẻ mới)
+    const cards = await this.prisma.card.findMany({
+      where: {
+        userId,
+        status: { not: CardStatus.NEW },
       },
-    });
-  }
-
-  /**
-   * UNENROLL DECK: Xóa các card thuộc bộ thẻ đó khỏi User
-   */
-  async unenrollDeck(userId: string, deckId: string) {
-    const deleted = await this.prisma.card.deleteMany({
-      where: { userId, deckId },
-    });
-    return {
-      message: `Đã xóa ${deleted.count} thẻ khỏi lộ trình.`,
-      count: deleted.count,
-    };
-  }
-
-  /**
-   * GET REVIEW STATS: Thống kê trạng thái học tập
-   */
-  async getReviewStats(userId: string) {
-    const stats = await this.prisma.card.groupBy({
-      by: ['status'],
-      where: { userId },
-      _count: true,
+      select: { nextReview: true },
     });
 
-    const result: Record<string, number> = {
-      NEW: 0,
-      REVIEW: 0,
-      LAPSED: 0,
-    };
+    // 2. Gom nhóm theo ngày (YYYY-MM-DD)
+    const forecast: Record<string, number> = {};
 
-    stats.forEach((curr) => {
-      result[curr.status] = curr._count;
+    cards.forEach((card) => {
+      // Chỉ lấy phần ngày, bỏ qua giờ phút giây
+      const dateKey = card.nextReview.toISOString().split('T')[0];
+      forecast[dateKey] = (forecast[dateKey] || 0) + 1;
     });
 
-    return result;
+    // 3. Sắp xếp lại theo thứ tự thời gian để Frontend dễ vẽ biểu đồ
+    const sortedForecast = Object.keys(forecast)
+      .sort()
+      .reduce(
+        (obj, key) => {
+          obj[key] = forecast[key];
+          return obj;
+        },
+        {} as Record<string, number>,
+      );
+
+    return sortedForecast;
   }
 }

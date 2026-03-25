@@ -25,9 +25,9 @@ export interface NavGroup {
 
 // Định nghĩa các item với key
 const STUDENT_BASE: NavItem[] = [
+  { titleKey: "vocabulary", href: "/vocabulary", icon: BookMarked },
   { titleKey: "dashboard", href: "/dashboard", icon: LayoutDashboard },
   { titleKey: "listen", href: "/listen", icon: Headphones },
-  { titleKey: "vocabulary", href: "/vocabulary", icon: BookMarked },
   { titleKey: "translate", href: "/translate", icon: Languages },
 ];
 
