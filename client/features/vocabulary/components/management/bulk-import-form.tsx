@@ -1,69 +1,116 @@
 "use client";
 
-import { useState } from "react";
+import React from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Wand2, Loader2, Sparkles } from "lucide-react";
+
+// Sửa import: Sử dụng hook lẻ từ api/use-management
+import { useBulkImport } from "../../api/use-management";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, FileUp } from "lucide-react";
-import { toast } from "sonner";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
-interface BulkImportFormProps {
-  onImport: (words: string[]) => Promise<void>;
-}
+const BulkImportFormSchema = z.object({
+  rawWords: z.string().min(1, "Vui lòng nhập ít nhất một từ vựng"),
+});
 
-export function BulkImportForm({ onImport }: BulkImportFormProps) {
-  const [text, setText] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+type BulkImportFormInput = z.infer<typeof BulkImportFormSchema>;
 
-  const handleProcess = async () => {
-    // Tách dòng, loại bỏ khoảng trắng và dòng trống
-    const words = text
-      .split("\n")
+export const BulkImportForm = ({ deckId, onSuccess }: { deckId: string; onSuccess?: () => void }) => {
+  // Khởi tạo hook bulkImport
+  const { mutate: bulkImport, isPending } = useBulkImport();
+
+  const form = useForm<BulkImportFormInput>({
+    resolver: zodResolver(BulkImportFormSchema),
+    defaultValues: {
+      rawWords: "",
+    },
+  });
+
+  const onSubmit = (data: BulkImportFormInput) => {
+    const wordsArray = data.rawWords
+      .split(/[\n,;]+/)
       .map((w) => w.trim())
       .filter((w) => w.length > 0);
 
-    if (words.length === 0) {
-      toast.error("Vui lòng nhập ít nhất một từ vựng");
+    if (wordsArray.length === 0) {
+      form.setError("rawWords", { message: "Không tìm thấy từ hợp lệ để nhập" });
       return;
     }
 
-    setIsLoading(true);
-    try {
-      await onImport(words);
-      setText("");
-      toast.success(`Đã xử lý yêu cầu nhập ${words.length} từ`);
-    } catch {
-      toast.error("Có lỗi xảy ra khi nhập dữ liệu");
-    } finally {
-      setIsLoading(false);
+    if (wordsArray.length > 30) {
+      form.setError("rawWords", { message: "Mỗi lần chỉ có thể nhập tối đa 30 từ để đảm bảo chất lượng AI" });
+      return;
     }
+
+    // Truyền tham số đúng cấu trúc { deckId, words } như định nghĩa trong use-management.ts
+    bulkImport(
+      {
+        deckId,
+        words: wordsArray,
+      },
+      {
+        onSuccess: () => {
+          form.reset();
+          onSuccess?.();
+        },
+      },
+    );
   };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <h3 className="font-semibold text-sm">Nhập danh sách từ vựng</h3>
-        <p className="text-xs text-muted-foreground">
-          Mỗi từ vựng nằm trên một dòng. Hệ thống sẽ tự động tra cứu nghĩa, phiên âm và ví dụ.
-        </p>
-      </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="rawWords"
+          render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center justify-between">
+                <FormLabel className="text-base font-semibold flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-violet-500" />
+                  Nhập danh sách từ vựng
+                </FormLabel>
+                <span className="text-[10px] bg-muted px-2 py-1 rounded-full text-muted-foreground font-bold uppercase">
+                  {field.value.split(/[\n,;]+/).filter((w) => w.trim()).length} / 30 từ
+                </span>
+              </div>
+              <FormControl>
+                <Textarea
+                  placeholder="Ví dụ:&#10;Resilience&#10;Serendipity, Eloquent&#10;Ubiquitous"
+                  className="min-h-50 resize-none text-base leading-relaxed focus-visible:ring-violet-500"
+                  disabled={isPending}
+                  {...field}
+                />
+              </FormControl>
+              <FormDescription className="text-xs">
+                Mỗi từ cách nhau bởi <strong>dấu phẩy</strong> hoặc <strong>xuống dòng</strong>. AI sẽ tự động trích
+                xuất định nghĩa, phiên âm và ví dụ.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <Textarea
-        placeholder="apple&#10;banana&#10;cherry"
-        className="min-h-50 font-mono"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        disabled={isLoading}
-      />
-
-      <div className="flex justify-between items-center">
-        <span className="text-xs text-muted-foreground">
-          Số lượng từ hiện tại: <strong>{text.split("\n").filter((w) => w.trim()).length}</strong>
-        </span>
-        <Button onClick={handleProcess} disabled={isLoading || !text.trim()}>
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
-          Bắt đầu Import tự động
+        <Button
+          type="submit"
+          className="w-full h-12 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow-lg shadow-indigo-200 dark:shadow-none transition-all"
+          disabled={isPending}>
+          {isPending ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>AI đang trích xuất dữ liệu...</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Wand2 size={18} />
+              <span className="font-semibold">Tự động tạo thẻ với AI</span>
+            </div>
+          )}
         </Button>
-      </div>
-    </div>
+      </form>
+    </Form>
   );
-}
+};

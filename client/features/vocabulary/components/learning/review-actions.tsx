@@ -1,114 +1,125 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 interface ReviewActionsProps {
-  onAnswer: (grade: 1 | 2 | 3 | 4, responseTime: number) => void;
   isFlipped: boolean;
-  isWrong?: boolean;
+  isSyncing?: boolean;
+  onRate: (rating: number) => void;
+  onFlip: () => void;
 }
 
-export function ReviewActions({ onAnswer, isFlipped, isWrong }: ReviewActionsProps) {
-  const startTime = useRef<number | null>(null);
+// Sử dụng các biến màu từ globals.css (shadcn default)
+const RATINGS = [
+  {
+    value: 1,
+    label: "Quên sạch",
+    color: "bg-destructive text-destructive-foreground hover:opacity-90 border-destructive/50",
+  },
+  {
+    value: 2,
+    label: "Mơ hồ",
+    color: "bg-orange-500 text-white hover:bg-orange-600 border-orange-700/30", // Màu cam thường không có trong shadcn default, giữ nguyên hoặc dùng accent
+  },
+  {
+    value: 3,
+    label: "Nhớ tốt",
+    color: "bg-primary text-primary-foreground hover:opacity-90 border-primary/50",
+  },
+  {
+    value: 4,
+    label: "Quá dễ",
+    color: "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-secondary-foreground/10",
+  },
+];
 
-  useEffect(() => {
-    if (isFlipped) {
-      startTime.current = Date.now();
-    }
-  }, [isFlipped]);
-
-  const handlePress = useCallback(
-    (grade: 1 | 2 | 3 | 4) => {
-      const start = startTime.current ?? Date.now();
-      const responseTime = Date.now() - start;
-      onAnswer(grade, responseTime);
-    },
-    [onAnswer],
-  );
-
-  // --- LOGIC PHÍM TẮT ---
+export const ReviewActions = ({ isFlipped, isSyncing = false, onRate, onFlip }: ReviewActionsProps) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Chỉ nhận phím tắt khi thẻ đã được lật (Mặt sau)
-      if (!isFlipped) return;
+      if (isSyncing) return;
 
-      // Tránh xung đột nếu người dùng đang gõ vào một input nào đó (hiếm gặp ở màn hình này)
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // ❗ ignore nếu đang gõ ở input/editable
+      const el = document.activeElement as HTMLElement | null;
 
-      switch (e.key) {
-        case "1":
-          handlePress(1);
-          break;
-        case "2":
-          if (!isWrong) handlePress(2);
-          break;
-        case "3":
-          if (!isWrong) handlePress(3);
-          break;
-        case "4":
-          if (!isWrong) handlePress(4);
-          break;
-        case " ": // Phím Space
-        case "Enter":
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) {
+        return;
+      }
+
+      // ❗ tránh giữ phím
+      if (e.repeat) return;
+
+      if (!isFlipped) {
+        if (e.code === "Space") {
           e.preventDefault();
-          // Nếu gõ sai thì Space/Enter sẽ là Again (1), nếu đúng thì mặc định là Good (3)
-          handlePress(isWrong ? 1 : 3);
-          break;
+          e.stopPropagation();
+          onFlip();
+        }
+        return;
+      }
+
+      // ❗ chỉ nhận phím số hàng trên (không numpad)
+      if (["Digit1", "Digit2", "Digit3", "Digit4"].includes(e.code)) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const rating = Number(e.code.replace("Digit", ""));
+        onRate(rating);
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isFlipped, isWrong, handlePress]);
+    // capture phase → chạy TRƯỚC React & input
+    window.addEventListener("keydown", handleKeyDown, true);
 
-  if (!isFlipped) return null;
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [isFlipped, isSyncing, onRate, onFlip]);
+
+  if (!isFlipped) {
+    return (
+      <div className="flex justify-center w-full animate-in fade-in zoom-in duration-300 px-4">
+        <Button
+          onClick={onFlip}
+          disabled={isSyncing}
+          size="lg"
+          className="w-full max-w-md h-16 text-xl font-black rounded-[2rem] shadow-2xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 border-b-4 border-black/20">
+          {isSyncing ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : "LẬT THẺ (Space)"}
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
-      {/* Nút AGAIN (Phím 1) */}
-      <Button
-        variant="destructive"
-        className={cn(
-          "flex flex-col h-16 transition-all duration-300 relative group",
-          isWrong ? "col-span-2 md:col-span-4 shadow-xl scale-105" : "",
-        )}
-        onClick={() => handlePress(1)}>
-        <span className="font-bold">{isWrong ? "Tiếp tục (Học lại)" : "Again"}</span>
-        <span className="text-[10px] opacity-70">Phím [1] hoặc [Space]</span>
-      </Button>
+    <div
+      className={cn(
+        "grid grid-cols-4 gap-3 md:gap-6 w-full max-w-4xl mx-auto px-4 animate-in slide-in-from-bottom-6 duration-500",
+        isSyncing && "opacity-50 pointer-events-none",
+      )}>
+      {RATINGS.map((rating) => (
+        <button
+          key={rating.value}
+          disabled={isSyncing}
+          onClick={() => onRate(rating.value)}
+          className={cn(
+            "group relative flex flex-col items-center justify-center gap-2 rounded-[2rem] py-6 px-2 transition-all shadow-xl border-b-4",
+            rating.color,
+            "hover:-translate-y-2 active:translate-y-0 active:border-b-0",
+          )}>
+          {/* Số điểm nổi bật */}
+          <span className="text-3xl md:text-4xl font-black tracking-tighter drop-shadow-md">{rating.value}</span>
 
-      {!isWrong && (
-        <>
-          {/* Nút HARD (Phím 2) */}
-          <Button
-            variant="secondary"
-            className="flex flex-col h-16 bg-orange-100 hover:bg-orange-200 text-orange-700 border-none"
-            onClick={() => handlePress(2)}>
-            <span className="font-bold">Hard</span>
-            <span className="text-[10px] opacity-70 text-orange-600/80">Phím [2]</span>
-          </Button>
+          {/* Nhãn mô tả */}
+          <span className="text-[10px] md:text-xs font-black uppercase tracking-widest opacity-90 text-center leading-none">
+            {rating.label}
+          </span>
 
-          {/* Nút GOOD (Phím 3) */}
-          <Button
-            variant="secondary"
-            className="flex flex-col h-16 bg-green-100 hover:bg-green-200 text-green-700 border-none"
-            onClick={() => handlePress(3)}>
-            <span className="font-bold">Good</span>
-            <span className="text-[10px] opacity-70 text-green-600/80">Phím [3]</span>
-          </Button>
-
-          {/* Nút EASY (Phím 4) */}
-          <Button
-            variant="default"
-            className="flex flex-col h-16 bg-blue-600 hover:bg-blue-700 border-none"
-            onClick={() => handlePress(4)}>
-            <span className="font-bold">Easy</span>
-            <span className="text-[10px] opacity-70 text-blue-100/80">Phím [4]</span>
-          </Button>
-        </>
-      )}
+          {/* KND: Keyboard Hint */}
+          <div className="hidden md:flex absolute -top-2 -right-1 h-7 w-7 items-center justify-center bg-background text-foreground text-xs rounded-full border-2 border-current font-black shadow-lg group-hover:scale-120 transition-transform">
+            {rating.value}
+          </div>
+        </button>
+      ))}
     </div>
   );
-}
+};

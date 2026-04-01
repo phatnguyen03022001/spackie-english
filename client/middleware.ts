@@ -1,68 +1,61 @@
+// middleware.ts
 import createMiddleware from "next-intl/middleware";
 import { routing } from "./lib/i18n/routing";
 import { NextRequest, NextResponse } from "next/server";
 
 const intlMiddleware = createMiddleware(routing);
 
+// Các đường dẫn công khai (cho phép không cần đăng nhập)
+const PUBLIC_PATHS = ["/about", "/privacy", "/terms", "/contact", "/help"];
+
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("token")?.value;
   const userCookie = req.cookies.get("user")?.value;
-
   const locale = pathname.split("/")[1] || "en";
 
-  // 1. Định nghĩa các nhóm trang
-  const isAuthPage =
-    pathname.includes("/login") || pathname.includes("/register") || pathname.includes("/forgot-password");
-
-  const isLandingPage = routing.locales.some((l) => pathname === `/${l}` || pathname === `/${l}/` || pathname === "/");
-
+  // Chỉ match chính xác các đường dẫn auth, không match con
+  const authPaths = ["/login", "/register", "/forgot-password"];
+  const isAuthPage = authPaths.some((p) => pathname === `/${locale}${p}` || pathname === `/${locale}${p}/`);
   const isVerifyPage = pathname.includes("/verify");
+  const isLandingPage = routing.locales.some((l) => pathname === `/${l}` || pathname === `/${l}/`) || pathname === "/";
+  const isPublicPage = PUBLIC_PATHS.some((p) => pathname === `/${locale}${p}` || pathname === `/${locale}${p}/`);
 
-  // --- LOGIC CHÍNH ---
-
-  // TRƯỜNG HỢP A: ĐÃ ĐĂNG NHẬP
   if (token && userCookie) {
     try {
       const user = JSON.parse(decodeURIComponent(userCookie));
-      const rolePath = user.role.toLowerCase();
+      const rolePath = user.role.toLowerCase(); // student, teacher, admin
 
-      // Nếu đã đăng nhập mà cố vào trang Auth (Login/Register) -> Đẩy về Dashboard theo Role
+      // Đã login mà vào auth page -> về dashboard
       if (isAuthPage) {
         return NextResponse.redirect(new URL(`/${locale}/${rolePath}`, req.url));
       }
 
-      // PHÂN QUYỀN (RBAC): Chặn chéo giữa các Role
-      if (user.role === "STUDENT" && (pathname.includes("/teacher") || pathname.includes("/admin"))) {
-        return NextResponse.redirect(new URL(`/${locale}/student`, req.url));
+      // Chặn truy cập vào role khác
+      const otherRoles = ["student", "teacher", "admin"].filter((r) => r !== rolePath);
+      const isAccessingWrongRole = otherRoles.some((r) => pathname.startsWith(`/${locale}/${r}`));
+      if (isAccessingWrongRole) {
+        return NextResponse.redirect(new URL(`/${locale}/${rolePath}`, req.url));
       }
-
-      if (user.role === "TEACHER" && pathname.includes("/admin")) {
-        return NextResponse.redirect(new URL(`/${locale}/teacher`, req.url));
-      }
-    } catch (err) {
-      console.log(err);
-      // Nếu Cookie hỏng, xóa sạch và bắt đăng nhập lại
+    } catch {
+      // Cookie hỏng -> xóa và redirect về login
       const response = NextResponse.redirect(new URL(`/${locale}/login`, req.url));
       response.cookies.delete("token");
       response.cookies.delete("user");
       return response;
     }
+  } else {
+    // Chưa đăng nhập: chỉ cho phép auth, landing, verify, public
+    if (!isAuthPage && !isLandingPage && !isVerifyPage && !isPublicPage) {
+      return NextResponse.redirect(new URL(`/${locale}/login`, req.url));
+    }
   }
 
-  // TRƯỜNG HỢP B: CHƯA ĐĂNG NHẬP
-  else if (!isAuthPage && !isLandingPage && !isVerifyPage) {
-    // Nếu chưa đăng nhập mà vào trang cần bảo vệ -> Đẩy về Login
-    return NextResponse.redirect(new URL(`/${locale}/login`, req.url));
-  }
-
-  // Cuối cùng: Chạy xử lý đa ngôn ngữ của next-intl
   return intlMiddleware(req);
 }
 
 export const config = {
   matcher: [
-    // Loại trừ các file tĩnh và folder 'system' để ảnh 404 có thể load
     "/((?!api|_next/static|_next/image|favicon.ico|apple-touch-icon.png|icons|home|fonts|system|android-chrome|site\\.webmanifest).*)",
   ],
 };

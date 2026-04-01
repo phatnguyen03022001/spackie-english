@@ -63,11 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     Cookies.set("token", accessToken, { expires: 7, path: "/" });
     Cookies.set("user", userStr, { expires: 7, path: "/" });
 
-    // 2. Lưu LocalStorage dự phòng cho Client
-    localStorage.setItem("token", accessToken);
-    localStorage.setItem("user", JSON.stringify(user));
-
-    // 3. Cập nhật State để UI re-render ngay lập tức
+    // 2. Cập nhật State để UI re-render ngay lập tức
     setToken(accessToken);
     setUser(user);
   };
@@ -75,9 +71,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     Cookies.remove("token", { path: "/" });
     Cookies.remove("user", { path: "/" });
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-
     setToken(null);
     setUser(null);
 

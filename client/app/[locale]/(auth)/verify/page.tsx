@@ -13,12 +13,14 @@ export default function VerifyPage() {
   const { mutate, isPending } = useVerifyOtp(type);
 
   return (
-    <OtpVerification
-      email={email}
-      type={type}
-      title={t(`title_${type.toLowerCase()}`)}
-      onVerify={(otp) => mutate({ email, code: otp })}
-      isPending={isPending}
-    />
+    <div className="w-full max-w-md mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
+      <OtpVerification
+        email={email}
+        type={type}
+        title={t(`title_${type.toLowerCase()}`)}
+        onVerify={(otp) => mutate({ email, code: otp })}
+        isPending={isPending}
+      />
+    </div>
   );
 }

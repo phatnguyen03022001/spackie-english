@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { ApiResponseDto } from '../dto/api-response.dto';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -28,6 +29,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         : 'Internal server error';
 
     const message = this.formatMessage(rawMessage);
+    const formattedMessage = Array.isArray(message) ? message[0] : message;
 
     const logPayload = {
       status,
@@ -47,13 +49,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       this.logger.warn(logPayload);
     }
 
+    // Dùng ApiResponseDto.error để có format đồng bộ
+    const errorResponse = ApiResponseDto.error(formattedMessage, status);
     response.status(status).json({
-      success: false,
-      statusCode: status,
-      message,
-      data: null,
+      ...errorResponse,
       path: request.originalUrl,
-      timestamp: new Date().toISOString(),
     });
   }
 

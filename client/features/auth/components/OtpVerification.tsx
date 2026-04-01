@@ -8,7 +8,7 @@ import { OtpSchema, OtpInput } from "../schemas/auth.schema";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { ArrowLeft, RotateCcw, ShieldCheck, Loader2 } from "lucide-react";
 import { useSendOtp } from "../mutations/useSendOtp";
 import { Link } from "@/lib/i18n/routing";
 
@@ -42,66 +42,86 @@ export const OtpVerification = ({ email, type, title, onVerify, isPending }: Otp
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 animate-in fade-in duration-500">
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-white">{title}</h2>
-        <p className="text-muted-foreground text-sm">
-          {t("subtitle")} <b className="text-primary">{email}</b>
-        </p>
+    // Bọc trong glass-panel và dùng items-center cho toàn bộ layout
+    <div className="glass-panel w-full flex flex-col items-center text-center shadow-2xl border-white/10 p-8 sm:p-10">
+      {/* Header Section: Căn giữa tuyệt đối */}
+      <div className="mb-10 space-y-4 w-full flex flex-col items-center">
+        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-[inset_0_0_12px_rgba(var(--primary),0.1)]">
+          <ShieldCheck size={30} />
+        </div>
+
+        <div className="space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">{title}</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-70 mx-auto">
+            {t("subtitle")}{" "}
+            <span className="text-primary font-semibold block mt-1 break-all underline decoration-primary/20 underline-offset-4">
+              {email}
+            </span>
+          </p>
+        </div>
       </div>
 
       <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit((d) => onVerify(d.otp))}
-          className="space-y-6 w-full flex flex-col items-center">
+        <form onSubmit={form.handleSubmit((d) => onVerify(d.otp))} className="space-y-10 w-full">
+          {/* Input OTP Group: Căn giữa các Slot */}
           <FormField
             control={form.control}
             name="otp"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="flex flex-col items-center">
                 <FormControl>
-                  <InputOTP maxLength={6} {...field} autoFocus onComplete={onVerify}>
-                    <InputOTPGroup className="gap-2">
+                  <InputOTP maxLength={6} {...field} autoFocus onComplete={(value) => onVerify(value)}>
+                    <InputOTPGroup className="flex justify-center gap-2 sm:gap-3">
                       {[...Array(6)].map((_, i) => (
-                        <InputOTPSlot
-                          key={i}
-                          index={i}
-                          className="w-10 h-12 sm:w-12 sm:h-14 border-input bg-background text-foreground shadow-sm"
-                        />
+                        <InputOTPSlot key={i} index={i} />
                       ))}
                     </InputOTPGroup>
                   </InputOTP>
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-[13px] font-medium mt-2" />
               </FormItem>
             )}
           />
 
-          <div className="w-full space-y-3">
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? t("processing") : t("verify_button")}
+          <div className="space-y-6 w-full flex flex-col items-center">
+            <Button
+              type="submit"
+              className="w-full max-w-[320px] h-12 text-base font-bold bg-primary hover:opacity-90 shadow-xl shadow-primary/20 transition-all active:scale-[0.98] rounded-xl"
+              disabled={isPending}>
+              {isPending ? <Loader2 className="animate-spin" /> : t("verify_button")}
             </Button>
+
+            {/* Resend Countdown: Design lại cho gọn để không chiếm không gian */}
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="w-full"
+              className="text-muted-foreground hover:text-primary transition-colors h-auto py-2"
               disabled={countdown > 0 || isPending || resendMutation.isPending}
               onClick={handleResend}>
               {countdown > 0 ? (
-                `${t("resend_countdown")} ${countdown}s`
+                <span className="text-xs font-medium flex items-center gap-2 tabular-nums">
+                  {t("resend_countdown")} <span className="text-primary font-bold">{countdown}s</span>
+                </span>
               ) : (
-                <>
-                  <RotateCcw size={14} className="mr-2" /> {t("resend_button")}
-                </>
+                <span className="text-xs font-bold flex items-center gap-2 uppercase tracking-wider">
+                  <RotateCcw size={14} /> {t("resend_button")}
+                </span>
               )}
             </Button>
           </div>
         </form>
       </Form>
-      <Link href="/login" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
-        <ArrowLeft size={16} /> {t("back_to_login")}
-      </Link>
+
+      {/* Footer link quay lại */}
+      <div className="mt-10 pt-6 border-t border-border/40 w-full">
+        <Link
+          href="/login"
+          className="group flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-all">
+          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+          {t("back_to_login")}
+        </Link>
+      </div>
     </div>
   );
 };

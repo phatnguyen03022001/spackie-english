@@ -32,7 +32,7 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts",
-    "postcss.config.mjs",  
+    "postcss.config.mjs", "features/vocabulary/hooks/use-sm2-logic.ts", "features/vocabulary/components/learning/xtra-study-modal.tsx ", "features/dashboard/components/export const AppHeader = ({ role, pathSegments }: DashboardHeaderProps) => {",  
   ],
   "exclude": ["node_modules"]
 }

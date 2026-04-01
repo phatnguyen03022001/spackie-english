@@ -1,0 +1,197 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/**
+ * =========================
+ * ENUMS
+ * =========================
+ */
+
+enum DifficultyLevel {
+  BEGINNER // A1-A2
+  INTERMEDIATE // B1-B2
+  ADVANCED // C1-C2
+  EXAM_PREP // Dành riêng cho TOEIC/IELTS
+  COMMUNICATION // Tiếng Anh giao tiếp
+}
+
+enum OTPType {
+  REGISTER
+  LOGIN
+  FORGOT_PASSWORD
+}
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum CardStatus {
+  NEW // Chưa 
+  LEARNING // Đang trong giai đoạn nạp (Interval ngắn)
+  REVIEW // Đã vào giai đoạn ôn tập (Interval > 1 ngày)
+  MASTERED // Đã thuộc lòng (Interval > 30-60 ngày - tùy bạn định nghĩa)
+}
+
+/**
+ * =========================
+ * USER & THỐNG KÊ
+ * =========================
+ */
+
+model User {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  email      String   @unique
+  password   String
+  role       UserRole @default(STUDENT)
+  name       String?
+  isVerified Boolean  @default(false)
+
+  // Tracking đơn giản
+  streak       Int       @default(0)
+  lastActiveAt DateTime?
+
+  // Quan hệ
+  decks    Deck[]
+  cards    Card[]
+  stats    UserStats?
+  sessions LearningSession[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+}
+
+// Bảng này cực kỳ quan trọng để hiển thị Dashboard nhanh
+model UserStats {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @unique @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  totalWords    Int @default(0) // Tổng số từ trong tất cả deck
+  learnedWords  Int @default(0) // Số từ đã bắt đầu học (status != NEW)
+  masteredWords Int @default(0) // Số từ đã đạt status MASTERED
+  totalReviews  Int @default(0) // Tổng số lần nhấn nút trả lời từ trước đến nay
+
+  lastStudyDate DateTime?
+}
+
+/**
+ * =========================
+ * DECK & CARD
+ * =========================
+ */
+
+model Deck {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  isPublic    Boolean         @default(false)
+  levelTag    DifficultyLevel @default(BEGINNER)
+
+  creatorId String @db.ObjectId
+  creator   User   @relation(fields: [creatorId], references: [id])
+
+  cards    Card[]
+  sessions LearningSession[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+
+  @@index([isPublic, levelTag])
+  @@index([creatorId])
+}
+
+model Card {
+  id       String    @id @default(auto()) @map("_id") @db.ObjectId
+  word     String
+  phonetic String?
+  audioUrl String?
+  meanings Meaning[] // Embedded type
+
+  userId String  @db.ObjectId
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deckId String? @db.ObjectId
+  deck   Deck?   @relation(fields: [deckId], references: [id])
+
+  // --- SM-2 SRS LOGIC ---
+  status      CardStatus @default(NEW)
+  easeFactor  Float      @default(2.5)
+  interval    Int        @default(0) // Khoảng cách ngày cho lần ôn tới
+  repetitions Int        @default(0) // Số lần liên tiếp trả lời đúng
+  nextReview  DateTime   @default(now())
+
+  lastRating     Int?
+  lastReviewedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+
+  @@unique([userId, word]) // Một user không học trùng 1 từ
+  @@index([deckId])
+  @@index([userId, nextReview])
+}
+
+/**
+ * =========================
+ * SESSION (Batch Sync)
+ * =========================
+ */
+
+model LearningSession {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+  deckId String @db.ObjectId
+  deck   Deck   @relation(fields: [deckId], references: [id])
+
+  startTime DateTime  @default(now())
+  endTime   DateTime?
+
+  // Dữ liệu tổng hợp từ Client gửi lên
+  cardsProcessed Int @default(0) // Số thẻ đã học trong phiên này
+  minutesSpent   Int @default(0) // Thời gian học thực tế
+
+  // Bạn có thể lưu JSON thô của kết quả nếu muốn log chi tiết mà không cần bảng riêng
+  rawResults Json?
+
+  @@index([userId, startTime])
+}
+
+/**
+ * =========================
+ * TYPES & OTHERS
+ * =========================
+ */
+
+type Meaning {
+  partOfSpeech String
+  definitions  Definition[]
+}
+
+type Definition {
+  definition String
+  example    String?
+  synonyms   String[]
+  antonyms   String[]
+}
+
+model OTP {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String
+  code      String
+  type      OTPType
+  expiresAt DateTime
+  used      Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([email, type], name: "email_type_unique")
+  @@index([expiresAt])
+}

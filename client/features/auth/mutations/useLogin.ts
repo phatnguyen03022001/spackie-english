@@ -5,7 +5,7 @@ import { AxiosError } from "axios";
 import { useTranslations } from "next-intl";
 import { authApi } from "../api/auth-client";
 import { LoginDto, AuthResponse } from "../types/auth.types";
-import { useAuth } from "../hooks/useAuthContext";
+import { useAuth } from "../hooks/useAuthProvider";
 import { useRouter } from "@/lib/i18n/routing";
 import { handleAuthError } from "../utils/handleAuthError"; // Import utility
 import { ServerError } from "../../../types/shared";
@@ -23,7 +23,7 @@ export const useLogin = () => {
     mutationFn: (data: LoginDto) => authApi.login(data),
     onSuccess: (data) => {
       login(data);
-      toast.success(t("success"));
+      toast.success(t("Success"));
       const role = data.user.role.toLowerCase();
       router.push(`/${role}`);
     },

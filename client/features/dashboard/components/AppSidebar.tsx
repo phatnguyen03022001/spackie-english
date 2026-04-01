@@ -7,10 +7,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LogOut, Moon, Sun, BookOpen, Languages } from "lucide-react";
-import { ROLE_NAV_CONFIG } from "@/enum/nav";
+import { ROLE_NAV_CONFIG } from "../enum/nav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/features/auth/hooks/useAuthContext";
+import { useAuth } from "@/features/auth/hooks/useAuthProvider";
 import { useEffect, useState } from "react";
 
 interface AppSidebarProps {
@@ -94,14 +94,14 @@ export function AppSidebar({ role, onClose }: AppSidebarProps) {
                             "group flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] transition-all duration-200",
                             isActive
                               ? "bg-primary text-primary-foreground font-bold shadow-sm"
-                              : "text-sidebar-foreground/70 font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                              : "text-sidebar-foreground font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                           )}>
                           <item.icon
                             className={cn(
                               "h-5 w-5 shrink-0 transition-colors",
                               isActive
                                 ? "text-primary-foreground drop-shadow-[0_0_3px_rgba(255,255,255,0.3)]" // Thêm chút bóng mờ để icon nổi bật
-                                : "text-muted-foreground group-hover:text-primary",
+                                : "text-foreground group-hover:text-primary",
                             )}
                             strokeWidth={isActive ? 2.5 : 2}
                           />

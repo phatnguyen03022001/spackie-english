@@ -1,64 +1,92 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { Volume2, VolumeX, Play, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Volume2, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface AudioPlayerProps {
-  url: string;
-  autoPlay?: boolean;
+  url?: string;
+  className?: string;
+  size?: "sm" | "md" | "lg";
 }
 
-export function AudioPlayer({ url, autoPlay = false }: AudioPlayerProps) {
+export const AudioPlayer = ({ url, className, size = "md" }: AudioPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Khởi tạo và cập nhật audio khi url thay đổi
   useEffect(() => {
-    if (autoPlay && url) {
-      handlePlay();
+    if (!url) {
+      audioRef.current = null;
+      return;
     }
-  }, []);
 
-  const handlePlay = async () => {
-    if (!url || isLoading) return;
+    const audio = new Audio(url);
+    audioRef.current = audio;
+
+    const handleEnded = () => setIsPlaying(false);
+    const handleError = () => {
+      setIsPlaying(false);
+      setIsLoading(false);
+      toast.error("Không thể tải tập tin âm thanh");
+    };
+    const handleCanPlay = () => setIsLoading(false);
+
+    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("error", handleError);
+    audio.addEventListener("canplay", handleCanPlay);
+
+    return () => {
+      audio.pause();
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("error", handleError);
+      audio.removeEventListener("canplay", handleCanPlay);
+      audioRef.current = null;
+    };
+  }, [url]);
+
+  const togglePlay = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!audioRef.current || !url) return;
 
     try {
-      if (!audioRef.current) {
-        audioRef.current = new Audio(url);
-      } else if (audioRef.current.src !== url) {
-        audioRef.current.src = url;
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        setIsLoading(true);
+        await audioRef.current.play();
+        setIsPlaying(true);
       }
-
-      setIsLoading(true);
-      await audioRef.current.play();
-      setIsPlaying(true);
-
-      audioRef.current.onended = () => setIsPlaying(false);
     } catch (error) {
       console.error("Audio playback failed:", error);
+      setIsPlaying(false);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const iconSize = size === "sm" ? 16 : size === "lg" ? 24 : 20;
+
   return (
     <Button
       variant="ghost"
       size="icon"
-      className="rounded-full h-10 w-10"
-      onClick={(e) => {
-        e.stopPropagation(); // Không làm lật thẻ khi bấm nút loa
-        handlePlay();
-      }}
-      disabled={!url || isLoading}>
-      {isLoading ? (
-        <Loader2 className="h-5 w-5 animate-spin" />
+      disabled={!url || isLoading}
+      onClick={togglePlay}
+      className={cn("rounded-full h-8 w-8 hover:bg-primary/10 transition-colors", className)}>
+      {!url ? (
+        <VolumeX size={iconSize} className="text-muted-foreground" />
+      ) : isLoading ? (
+        <Loader2 size={iconSize} className="animate-spin text-primary" />
       ) : isPlaying ? (
-        <Volume2 className="h-5 w-5 text-primary animate-pulse" />
+        <Volume2 size={iconSize} className="text-primary animate-pulse" />
       ) : (
-        <Volume2 className="h-5 w-5" />
+        <Play size={iconSize} className="text-primary fill-primary" />
       )}
     </Button>
   );
-}
+};

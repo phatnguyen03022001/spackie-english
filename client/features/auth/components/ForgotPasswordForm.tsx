@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Link } from "@/lib/i18n/routing";
-import { ArrowLeft, Eye, EyeOff, SendHorizontal } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, SendHorizontal, ShieldCheck, Mail } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const ForgotPasswordForm = () => {
   const t = useTranslations("auth.forgot_password");
@@ -42,103 +43,146 @@ export const ForgotPasswordForm = () => {
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => resetPassword(data))} className="space-y-4">
-        {/* EMAIL FIELD */}
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-white">{t("label_email")}</FormLabel>
-              <div className="flex gap-2">
-                <FormControl>
-                  <Input
-                    placeholder={t("placeholder_email")}
-                    {...field}
-                    disabled={step === "VERIFY" || sendOtpMutation.isPending}
-                  />
-                </FormControl>
-                {step === "EMAIL" && (
-                  <Button
-                    type="button"
-                    onClick={onSendOtp}
-                    disabled={sendOtpMutation.isPending}
-                    className="shrink-0 bg-primary">
-                    {sendOtpMutation.isPending ? "..." : <SendHorizontal size={18} />}
-                  </Button>
-                )}
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+    // Bọc trong một container để tận dụng glass-panel từ globals.css
+    <div className="glass-panel w-full max-w-md mx-auto shadow-2xl border-white/10">
+      <div className="mb-8 space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          {step === "EMAIL" ? t("title") || "Quên mật khẩu?" : t("title_verify") || "Xác thực OTP"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {step === "EMAIL"
+            ? t("description") || "Nhập email của bạn để nhận mã khôi phục."
+            : t("description_verify") || "Chúng tôi đã gửi mã đến email của bạn."}
+        </p>
+      </div>
 
-        {step === "VERIFY" && (
-          <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-            <FormField
-              control={form.control}
-              name="code"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-foreground">{t("label_otp")}</FormLabel>
-                  <FormControl>
-                    <Input placeholder={t("placeholder_otp")} {...field} maxLength={6} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="newPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-foreground">{t("label_password")}</FormLabel>
-                  <div className="relative">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit((data) => resetPassword(data))} className="space-y-5">
+          {/* EMAIL FIELD */}
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-foreground/80 font-medium">{t("label_email")}</FormLabel>
+                <div className="relative flex gap-2">
+                  <div className="relative w-full">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                     <FormControl>
                       <Input
-                        type={showPassword ? "text" : "password"}
-                        placeholder={t("placeholder_password")}
-                        className="pr-10"
+                        placeholder={t("placeholder_email")}
                         {...field}
+                        className={cn(
+                          "pl-10 h-11 bg-background/50 border-border/50 focus:border-primary transition-all",
+                          step === "VERIFY" && "opacity-60 grayscale-[0.5]",
+                        )}
+                        disabled={step === "VERIFY" || sendOtpMutation.isPending}
                       />
                     </FormControl>
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary">
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
                   </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            <Button type="submit" className="w-full font-bold h-11 bg-primary" disabled={isResetPending}>
-              {isResetPending ? "..." : t("btn_submit")}
-            </Button>
+                  {step === "EMAIL" && (
+                    <Button
+                      type="button"
+                      onClick={onSendOtp}
+                      disabled={sendOtpMutation.isPending}
+                      className="shrink-0 h-11 px-4 bg-primary hover:opacity-90 shadow-lg shadow-primary/20 transition-all active:scale-95">
+                      {sendOtpMutation.isPending ? (
+                        <span className="animate-pulse">...</span>
+                      ) : (
+                        <SendHorizontal size={18} />
+                      )}
+                    </Button>
+                  )}
+                </div>
+                <FormMessage className="text-[13px]" />
+              </FormItem>
+            )}
+          />
 
-            <button
-              type="button"
-              onClick={() => {
-                setStep("EMAIL");
-                form.clearErrors();
-              }}
-              className="w-full text-xs text-muted-foreground hover:text-primary transition-colors mt-2">
-              {t("btn_use_other")}
-            </button>
-          </div>
-        )}
-      </form>
+          {step === "VERIFY" && (
+            <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+              <FormField
+                control={form.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-foreground/80 font-medium">{t("label_otp")}</FormLabel>
+                    <div className="relative">
+                      <ShieldCheck
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                        size={18}
+                      />
+                      <FormControl>
+                        <Input
+                          placeholder={t("placeholder_otp")}
+                          {...field}
+                          maxLength={6}
+                          className="pl-10 h-11 bg-background/50 border-border/50 tracking-[0.2em] font-mono text-lg"
+                        />
+                      </FormControl>
+                    </div>
+                    <FormMessage className="text-[13px]" />
+                  </FormItem>
+                )}
+              />
 
-      <Link
-        href="/login"
-        className="mt-8 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ArrowLeft size={16} /> {t("link_back")}
-      </Link>
-    </Form>
+              <FormField
+                control={form.control}
+                name="newPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-foreground/80 font-medium">{t("label_password")}</FormLabel>
+                    <div className="relative">
+                      <FormControl>
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder={t("placeholder_password")}
+                          className="h-11 pr-10 bg-background/50 border-border/50"
+                          {...field}
+                        />
+                      </FormControl>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors">
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    <FormMessage className="text-[13px]" />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="w-full font-bold h-12 bg-primary hover:opacity-90 shadow-xl shadow-primary/25 text-primary-foreground mt-2 transition-all active:scale-[0.98]"
+                disabled={isResetPending}>
+                {isResetPending ? "Processing..." : t("btn_submit")}
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("EMAIL");
+                  form.clearErrors();
+                }}
+                className="w-full text-xs font-medium text-muted-foreground hover:text-primary transition-colors py-2">
+                ← {t("btn_use_other") || "Sử dụng email khác"}
+              </button>
+            </div>
+          )}
+        </form>
+      </Form>
+
+      <div className="mt-8 pt-6 border-t border-border/50">
+        <Link
+          href="/login"
+          className="flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors group">
+          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+          {t("link_back")}
+        </Link>
+      </div>
+    </div>
   );
 };

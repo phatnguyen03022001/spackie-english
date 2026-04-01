@@ -1,180 +1,205 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { Card as CardType } from "../../types";
-import { Card, CardContent } from "@/components/ui/card";
-import { AudioPlayer } from "../shared/audio-player";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import React, { useEffect, useRef, useState } from "react";
+import { Volume2, CheckCircle2, XCircle, Languages } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 
-interface ReviewCardProps {
-  card: CardType;
-  isFlipped: boolean;
-  onFlip: () => void;
-  onWrongAnswer?: () => void; // Callback để báo cho Session xử lý logic Grade 1
+/* =========================
+   Types (Sửa lỗi TS)
+========================= */
+interface Definition {
+  definition: string;
+  example?: string | null;
 }
 
-export function ReviewCard({ card, isFlipped, onFlip, onWrongAnswer }: ReviewCardProps) {
-  const [userInput, setUserInput] = useState("");
-  const [isWrong, setIsWrong] = useState(false);
+interface Meaning {
+  partOfSpeech: string;
+  definitions: Definition[];
+}
+
+interface Word {
+  word: string;
+  phonetic?: string | null;
+  audioUrl?: string | null;
+  meanings: Meaning[];
+}
+
+interface Card {
+  id: string;
+  word: Word; // word là object, không phải string
+}
+
+interface ReviewCardProps {
+  card: Card;
+  isFlipped: boolean;
+  onFlip: () => void;
+}
+
+/* =========================
+   Component
+========================= */
+export const ReviewCard = ({ card, isFlipped, onFlip }: ReviewCardProps) => {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [userInput, setUserInput] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Đồng bộ hóa state khi đổi thẻ (Reset state cho thẻ mới)
-  const [prevCardId, setPrevCardId] = useState(card.id);
-  if (card.id !== prevCardId) {
-    setPrevCardId(card.id);
-    setUserInput("");
-    setIsWrong(false);
-  }
-
-  // Tự động focus vào ô nhập liệu
+  // Focus vào ô input khi thẻ mới hiện ra (Mặt trước)
   useEffect(() => {
     if (!isFlipped) {
-      const timer = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(timer);
+      inputRef.current?.focus();
     }
-  }, [isFlipped, card.id]);
+  }, [card.id, isFlipped]);
 
-  const checkAnswer = () => {
-    const isCorrect = userInput.trim().toLowerCase() === card.word.toLowerCase();
-
-    if (isCorrect) {
-      setIsWrong(false);
-      onFlip();
-    } else {
-      setIsWrong(true);
-      // Đợi hiệu ứng rung một chút rồi mới lật thẻ để xem đáp án
-      setTimeout(() => {
-        onWrongAnswer?.();
-      }, 400);
+  // Tự động phát âm thanh khi lật sang mặt sau
+  useEffect(() => {
+    if (isFlipped && card.word.audioUrl && audioRef.current) {
+      audioRef.current.play().catch((err) => console.log("Audio play blocked:", err));
     }
+  }, [isFlipped, card.word.audioUrl]);
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (isSubmitted || isFlipped) return;
+    setIsSubmitted(true);
+    onFlip();
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (!isFlipped) checkAnswer();
-    }
+  const playAudio = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    audioRef.current?.play();
   };
+
+  // So sánh kết quả: không phân biệt hoa thường, bỏ khoảng trắng đầu cuối
+  const isCorrect = userInput.trim().toLowerCase() === card.word.word.trim().toLowerCase();
 
   return (
-    <Card
-      className={cn(
-        "w-full max-w-2xl mx-auto min-h-[500px] shadow-2xl border-2 transition-all duration-500 overflow-hidden",
-        isFlipped ? "border-primary/20 bg-card" : "border-muted",
-        isWrong && !isFlipped && "border-destructive animate-shake", // Hiệu ứng rung khi sai
-      )}>
-      <CardContent className="p-6 md:p-10 flex flex-col min-h-[500px]">
-        {!isFlipped ? (
-          /* --- MẶT TRƯỚC --- */
-          <div className="flex-1 flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in duration-300">
-            <div className="text-center space-y-2">
-              <Badge variant="secondary" className="mb-2 uppercase tracking-widest text-[10px]">
-                {card.status || "Reviewing"}
-              </Badge>
-              <p className="text-sm text-muted-foreground font-medium italic">
-                {card.meanings[0]?.partOfSpeech || "Vocabulary"}
-              </p>
-              <h2 className="text-3xl font-bold leading-tight px-4">
-                {card.meanings[0]?.definitions[0]?.definition || "Chưa có định nghĩa"}
+    <div className="group w-full max-w-md h-125 select-none perspective-[1000px]">
+      <div
+        className={cn(
+          "relative w-full h-full transition-all duration-500 transform-3d shadow-2xl rounded-3xl border bg-card",
+          isFlipped ? "transform-[rotateY(180deg)]" : "",
+        )}>
+        {/* MẶT TRƯỚC (FRONT): Hiển thị nghĩa tiếng Việt/Định nghĩa */}
+        <div className="absolute inset-0 backface-hidden flex flex-col p-8 text-center" aria-hidden={isFlipped}>
+          <div className="flex flex-col items-center justify-center flex-1 space-y-6">
+            <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+              <Languages size={24} />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                Dịch sang tiếng Anh
+              </span>
+              <h2 className="text-2xl font-bold leading-tight text-foreground line-clamp-4">
+                {card.word.meanings[0]?.definitions[0]?.definition || "Không có định nghĩa"}
               </h2>
             </div>
 
-            <div className="w-full max-w-sm space-y-4">
-              <Input
-                ref={inputRef}
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type the English word..."
-                className={cn(
-                  "text-center text-3xl h-20 border-2 transition-all font-bold tracking-tight",
-                  isWrong ? "border-destructive ring-2 ring-destructive/20" : "focus-visible:ring-primary",
-                )}
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <p className="text-xs text-center text-muted-foreground opacity-70">
-                Nhấn <kbd className="bg-muted px-1.5 py-0.5 rounded border font-sans">Enter</kbd> để kiểm tra
-              </p>
-            </div>
+            <form onSubmit={handleSubmit} className="w-full pt-8 space-y-4">
+              <div className="relative">
+                <Input
+                  ref={inputRef}
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    // CHẶN PHÍM TẮT: Không cho phím Space/Enter lật thẻ sớm khi đang gõ
+                    if (e.code === "Space") e.stopPropagation();
+                  }}
+                  placeholder="Nhập từ tiếng Anh..."
+                  className="h-16 text-center text-2xl font-black bg-muted/50 border-2 border-primary/10 focus-visible:border-primary focus-visible:ring-0 rounded-2xl transition-all"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full h-12 font-black rounded-xl shadow-lg shadow-primary/20 uppercase tracking-widest">
+                Kiểm tra (Enter)
+              </Button>
+            </form>
           </div>
-        ) : (
-          /* --- MẶT SAU --- */
-          <div className="w-full animate-in fade-in slide-in-from-bottom-6 duration-500 space-y-6">
-            <div className="flex justify-between items-start gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h2
-                    className={cn(
-                      "text-5xl font-black tracking-tighter",
-                      isWrong ? "text-destructive" : "text-primary",
-                    )}>
-                    {card.word}
-                  </h2>
-                  {card.audioUrl && <AudioPlayer url={card.audioUrl} autoPlay />}
-                </div>
-                {card.phonetic && (
-                  <p className="text-xl font-mono text-muted-foreground tracking-wide">{card.phonetic}</p>
-                )}
-              </div>
 
-              {/* So sánh trực quan lỗi sai */}
-              <div
-                className={cn(
-                  "text-right p-3 rounded-xl border min-w-[140px]",
-                  isWrong ? "bg-destructive/5 border-destructive/20" : "bg-green-500/5 border-green-500/20",
-                )}>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">
-                  {isWrong ? "Bạn đã gõ sai:" : "Bạn đã gõ đúng:"}
-                </p>
-                <p
-                  className={cn(
-                    "font-mono font-bold text-lg break-all",
-                    isWrong ? "text-destructive line-through" : "text-green-600",
-                  )}>
-                  {userInput || "..."}
-                </p>
-              </div>
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest opacity-30">
+            Mẹo: Nhập rồi nhấn Enter
+          </p>
+        </div>
+
+        {/* MẶT SAU (BACK): Kết quả và Chi tiết từ vựng */}
+        <div
+          className="absolute inset-0 backface-hidden transform-[rotateY(180deg)] flex flex-col p-6 overflow-hidden bg-card rounded-3xl"
+          aria-hidden={!isFlipped}>
+          {/* Banner kết quả */}
+          <div
+            className={cn(
+              "flex flex-col items-center gap-1 px-4 py-4 rounded-2xl mb-4 border animate-in zoom-in duration-300",
+              isCorrect
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600"
+                : "bg-red-500/10 border-red-500/20 text-red-600",
+            )}>
+            <div className="flex items-center gap-2">
+              {isCorrect ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
+              <span className="text-sm font-black uppercase tracking-tighter">
+                {isCorrect ? "Chính xác!" : "Chưa đúng rồi"}
+              </span>
             </div>
+            {!isCorrect && (
+              <p className="text-xs opacity-80 font-medium italic">Bạn đã nhập: {userInput || "để trống"}</p>
+            )}
+          </div>
 
-            <Separator />
+          {/* Thông tin từ vựng chính */}
+          <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+            <div className="text-left">
+              <h2 className="text-3xl font-black text-foreground tracking-tighter">{card.word.word}</h2>
+              <p className="text-sm font-mono text-primary font-bold">{card.word.phonetic}</p>
+            </div>
+            {card.word.audioUrl && (
+              <div className="flex items-center">
+                <audio ref={audioRef} src={card.word.audioUrl} />
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="rounded-full h-12 w-12 shadow-sm hover:bg-primary hover:text-white transition-colors"
+                  onClick={playAudio}>
+                  <Volume2 size={20} />
+                </Button>
+              </div>
+            )}
+          </div>
 
-            {/* Nội dung chi tiết */}
-            <div className="space-y-6 overflow-y-auto max-h-[380px] pr-2 custom-scrollbar">
-              {card.meanings.map((meaning, mIdx) => (
-                <div
-                  key={mIdx}
-                  className="space-y-4 bg-muted/30 p-5 rounded-2xl border border-muted/50 transition-colors">
-                  <Badge
-                    variant="outline"
-                    className="bg-background text-primary border-primary/30 font-bold uppercase text-[10px]">
-                    {meaning.partOfSpeech}
-                  </Badge>
-
-                  {meaning.definitions.map((def, dIdx) => (
-                    <div key={dIdx} className="space-y-3 border-b border-muted last:border-0 pb-4 last:pb-0">
-                      <div className="flex gap-3">
-                        <span className="text-primary/40 font-bold text-sm mt-1">{dIdx + 1}.</span>
-                        <div className="space-y-3 w-full">
-                          <p className="text-lg font-medium leading-snug">{def.definition}</p>
-                          {def.example && (
-                            <p className="text-muted-foreground border-l-4 border-primary/20 pl-4 py-2 italic bg-primary/5 rounded-r-xl text-sm">
-                              &quot;{def.example}&quot;
-                            </p>
-                          )}
-                        </div>
+          {/* Danh sách nghĩa chi tiết */}
+          <ScrollArea className="flex-1 pr-2">
+            <div className="space-y-6 pb-4">
+              {card.word.meanings.map((meaning, mIdx) => (
+                <div key={mIdx} className="space-y-3">
+                  <div className="flex items-center">
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-primary text-primary-foreground">
+                      {meaning.partOfSpeech}
+                    </span>
+                  </div>
+                  <div className="space-y-4 pl-1">
+                    {meaning.definitions.map((def, dIdx) => (
+                      <div key={dIdx} className="pl-4 border-l-2 border-border group">
+                        <p className="text-sm font-medium leading-relaxed text-foreground/90">{def.definition}</p>
+                        {def.example && (
+                          <p className="text-xs text-muted-foreground mt-2 italic bg-muted/50 p-2 rounded-lg border border-border/50">
+                            &quot;{def.example}&quot;
+                          </p>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          </ScrollArea>
+        </div>
+      </div>
+    </div>
   );
-}
+};

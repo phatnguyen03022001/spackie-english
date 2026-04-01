@@ -6,11 +6,11 @@ export default function LoginPage() {
   const t = useTranslations("auth.login");
 
   return (
-    <div>
+    <div className="w-full">
       <LoginForm />
-      <div className="text-center text-sm mt-4 text-muted-foreground">
+      <div className=" text-center lg:text-left text-sm mt-8 text-muted-foreground animate-in fade-in duration-1000">
         {t("noAccount")}{" "}
-        <Link href="/register" className="text-orange-600">
+        <Link href="/register" className="text-primary font-semibold hover:underline underline-offset-4 transition-all">
           {t("registerLink")}
         </Link>
       </div>

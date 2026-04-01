@@ -7,8 +7,7 @@ export * from "./components/OtpVerification";
 export * from "./components/ForgotPasswordForm";
 
 // Hooks & Logic
-export * from "./hooks/useAuthSession";
-export * from "./hooks/useAuthContext";
+export * from "./hooks/useAuthProvider";
 export * from "./mutations/useLogin";
 export * from "./mutations/useRegister";
 export * from "./mutations/useVerifyOtp";

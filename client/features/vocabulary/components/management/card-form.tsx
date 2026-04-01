@@ -1,313 +1,384 @@
 "use client";
 
-import * as z from "zod";
-import { useFieldArray, useForm, Control, FieldPath } from "react-hook-form";
+import React from "react";
+import { useForm, useFieldArray, Control, SubmitHandler, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Loader2, X, Volume2, AlignLeft } from "lucide-react";
+import { Plus, Trash2, Loader2, BookOpen, Speaker, Type } from "lucide-react";
 
-import { cardSchema } from "../../schemas";
+import { CreateCardSchema, CreateCardInput } from "../../schemas";
+import { useAddCard } from "../../api/use-management";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Card as UICard, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
-
-type CardFormValues = z.input<typeof cardSchema>;
-type CardFormData = z.infer<typeof cardSchema>;
 
 interface CardFormProps {
-  initialData?: Partial<CardFormValues>;
-  onSubmit: (data: CardFormData) => void;
-  isLoading?: boolean;
+  deckId: string;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export function CardForm({ initialData, onSubmit, isLoading }: CardFormProps) {
-  const form = useForm<CardFormValues>({
-    resolver: zodResolver(cardSchema),
-    defaultValues: {
-      word: initialData?.word || "",
-      phonetic: initialData?.phonetic || "",
-      audioUrl: initialData?.audioUrl || "",
-      deckId: initialData?.deckId || "",
-      meanings: initialData?.meanings || [
-        {
-          partOfSpeech: "",
-          definitions: [
-            {
-              definition: "",
-              example: "",
-              synonyms: [],
-              antonyms: [],
-            },
-          ],
-        },
-      ],
-    },
-  });
-
-  const {
-    fields: meaningFields,
-    append: appendMeaning,
-    remove: removeMeaning,
-  } = useFieldArray({
-    control: form.control,
-    name: "meanings",
-  });
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => onSubmit(data as CardFormData))} className="space-y-6">
-        {/* Row 1: Word & Phonetic */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="word"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Từ vựng</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ví dụ: well-known" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="phonetic"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Phiên âm</FormLabel>
-                <FormControl>
-                  <Input placeholder="/ˌwɛlˈnəʊn/" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* Row 2: Audio URL */}
-        <FormField
-          control={form.control}
-          name="audioUrl"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="flex items-center gap-2">
-                <Volume2 className="w-4 h-4" /> Link âm thanh (URL)
-              </FormLabel>
-              <FormControl>
-                <Input placeholder="https://api.dictionaryapi.dev/..." {...field} value={field.value || ""} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Định nghĩa & Loại từ</h3>
-          </div>
-
-          {meaningFields.map((field, index) => (
-            <Card key={field.id} className="border-l-4 border-l-primary">
-              <CardContent className="pt-6 space-y-4">
-                <div className="flex items-end gap-4">
-                  <FormField
-                    control={form.control}
-                    name={`meanings.${index}.partOfSpeech`}
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>Loại từ (Part of Speech)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Adjective, Noun, Vietnamese..." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeMeaning(index)}
-                    disabled={meaningFields.length === 1}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-
-                <DefinitionsList meaningIndex={index} control={form.control} />
-              </CardContent>
-            </Card>
-          ))}
-
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full border-dashed"
-            onClick={() =>
-              appendMeaning({
-                partOfSpeech: "",
-                definitions: [{ definition: "", example: "", synonyms: [], antonyms: [] }],
-              })
-            }>
-            <Plus className="w-4 h-4 mr-2" /> Thêm loại từ mới
-          </Button>
-        </div>
-
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Lưu thẻ học tập
-        </Button>
-      </form>
-    </Form>
-  );
-}
-
-function DefinitionsList({ meaningIndex, control }: { meaningIndex: number; control: Control<CardFormValues> }) {
+const DefinitionFields = ({
+  meaningIndex,
+  control,
+  disabled,
+}: {
+  meaningIndex: number;
+  control: Control<CreateCardInput>;
+  disabled: boolean;
+}) => {
   const { fields, append, remove } = useFieldArray({
     control,
-    name: `meanings.${meaningIndex}.definitions`,
+    name: `meanings.${meaningIndex}.definitions` as const,
   });
 
   return (
-    <div className="pl-4 md:pl-6 space-y-6 border-l-2 border-muted ml-2">
-      {fields.map((field, defIndex) => (
-        <div key={field.id} className="space-y-4 p-4 bg-muted/20 rounded-lg relative">
-          <div className="flex justify-between items-center">
-            <Badge variant="outline">Định nghĩa #{defIndex + 1}</Badge>
-            {fields.length > 1 && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => remove(defIndex)}>
-                <X className="w-4 h-4" />
-              </Button>
-            )}
+    <div className="space-y-4 pt-2">
+      {fields.map((field, index) => (
+        <div
+          key={field.id}
+          className="relative group p-4 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
+          <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:bg-destructive/10"
+              onClick={() => remove(index)}
+              disabled={fields.length === 1 || disabled}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
 
-          {/* Ô nhập định nghĩa chính */}
-          <FormField
-            control={control}
-            name={`meanings.${meaningIndex}.definitions.${defIndex}.definition`}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs uppercase text-muted-foreground">Giải nghĩa</FormLabel>
-                <FormControl>
-                  <Input placeholder="Nghĩa của từ..." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Ô nhập Ví dụ - CỰC KỲ QUAN TRỌNG CHO VIỆC HỌC */}
-          <FormField
-            control={control}
-            name={`meanings.${meaningIndex}.definitions.${defIndex}.example`}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs uppercase text-muted-foreground flex items-center gap-1">
-                  <AlignLeft className="w-3 h-3" /> Ví dụ minh họa
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    className="italic"
-                    placeholder="Ví dụ: He is a well-known author."
-                    {...field}
-                    value={field.value || ""}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <TagInput
-              label="Từ đồng nghĩa"
+          <div className="grid gap-4">
+            <FormField
               control={control}
-              name={`meanings.${meaningIndex}.definitions.${defIndex}.synonyms` as const}
+              name={`meanings.${meaningIndex}.definitions.${index}.definition`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-bold text-muted-foreground">ĐỊNH NGHĨA #{index + 1}</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      placeholder="Nhập ý nghĩa của từ..."
+                      className="bg-background resize-none"
+                      disabled={disabled}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            <TagInput
-              label="Từ trái nghĩa"
+
+            <FormField
               control={control}
-              name={`meanings.${meaningIndex}.definitions.${defIndex}.antonyms` as const}
+              name={`meanings.${meaningIndex}.definitions.${index}.example`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-bold text-muted-foreground">VÍ DỤ</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value ?? ""}
+                      placeholder="Câu ví dụ thực tế..."
+                      className="bg-background"
+                      disabled={disabled}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={control}
+                name={`meanings.${meaningIndex}.definitions.${index}.synonyms`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-bold text-muted-foreground">TỪ ĐỒNG NGHĨA</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value?.join(", ") || ""}
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value
+                              .split(",")
+                              .map((s) => s.trim())
+                              .filter(Boolean),
+                          )
+                        }
+                        placeholder="cách nhau bằng dấu phẩy"
+                        className="bg-background"
+                        disabled={disabled}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={control}
+                name={`meanings.${meaningIndex}.definitions.${index}.antonyms`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-bold text-muted-foreground">TỪ TRÁI NGHĨA</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value?.join(", ") || ""}
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value
+                              .split(",")
+                              .map((s) => s.trim())
+                              .filter(Boolean),
+                          )
+                        }
+                        placeholder="cách nhau bằng dấu phẩy"
+                        className="bg-background"
+                        disabled={disabled}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
         </div>
       ))}
 
       <Button
         type="button"
-        variant="ghost"
         size="sm"
-        className="w-full border-dashed border-2 hover:bg-primary/5"
-        onClick={() => append({ definition: "", example: "", synonyms: [], antonyms: [] })}>
-        <Plus className="w-3 h-3 mr-2" /> Thêm định nghĩa cho loại từ này
+        variant="outline"
+        className="w-full border-dashed bg-background/50 hover:bg-accent"
+        onClick={() => append({ definition: "", example: "", synonyms: [], antonyms: [] })}
+        disabled={disabled}>
+        <Plus className="mr-2 h-3 w-3" />
+        Thêm định nghĩa cho loại từ này
       </Button>
     </div>
   );
-}
+};
 
-function TagInput<T extends CardFormValues>({
-  label,
-  control,
-  name,
-}: {
-  label: string;
-  control: Control<T>;
-  name: FieldPath<T>;
-}) {
-  const [val, setVal] = useState("");
+export const CardForm = ({ deckId, onSuccess, onCancel }: CardFormProps) => {
+  const addCard = useAddCard();
+
+  const defaultValues = {
+    word: "",
+    phonetic: "",
+    audioUrl: null,
+    meanings: [
+      {
+        partOfSpeech: "noun",
+        definitions: [
+          {
+            definition: "",
+            example: "",
+            synonyms: [],
+            antonyms: [],
+          },
+        ],
+      },
+    ],
+  } as CreateCardInput;
+
+  const form = useForm<CreateCardInput>({
+    resolver: zodResolver(CreateCardSchema) as Resolver<CreateCardInput>,
+    defaultValues,
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "meanings",
+  });
+
+  const onSubmit: SubmitHandler<CreateCardInput> = async (values) => {
+    try {
+      const cleanedValues = {
+        ...values,
+        audioUrl: values.audioUrl?.trim() || null,
+        meanings: values.meanings.map((m) => ({
+          ...m,
+          definitions: m.definitions.map((d) => ({
+            ...d,
+            example: d.example ?? "",
+            synonyms: Array.isArray(d.synonyms) ? d.synonyms : [],
+            antonyms: Array.isArray(d.antonyms) ? d.antonyms : [],
+          })),
+        })),
+      };
+      await addCard.mutateAsync({ deckId, data: cleanedValues as CreateCardInput });
+      onSuccess?.();
+    } catch (error) {
+      console.error("Submit error:", error);
+    }
+  };
+
+  const isPending = addCard.isPending;
 
   return (
-    <FormField
-      control={control}
-      name={name}
-      render={({ field }) => {
-        const tags = (field.value as string[]) || [];
-
-        return (
-          <FormItem>
-            <FormLabel className="text-[10px] uppercase text-muted-foreground">{label}</FormLabel>
-            <div className="flex flex-wrap gap-1 mb-2 min-h-[24px]">
-              {tags.map((tag, i) => (
-                <Badge key={`${tag}-${i}`} variant="secondary" className="text-[10px] py-0 px-1 pr-0">
-                  {tag}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-4 w-4 p-0 hover:bg-transparent"
-                    onClick={() => {
-                      const next = [...tags];
-                      next.splice(i, 1);
-                      field.onChange(next);
-                    }}>
-                    <X className="w-2 h-2" />
-                  </Button>
-                </Badge>
-              ))}
-            </div>
-            <FormControl>
-              <Input
-                className="h-8 text-xs"
-                placeholder="Nhấn Enter để thêm tag"
-                value={val}
-                onChange={(e) => setVal(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    const trimmed = val.trim();
-                    if (trimmed && !tags.includes(trimmed)) {
-                      field.onChange([...tags, trimmed]);
-                      setVal("");
-                    }
-                  }
-                }}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        {/* Section 1: Thông tin cơ bản */}
+        <UICard className="border-none shadow-none bg-transparent">
+          <CardHeader className="px-0 pt-0">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Type className="h-5 w-5 text-primary" /> Thông tin cơ bản
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-0 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="word"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-medium">Từ vựng</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Ví dụ: Metaphor" className="h-10" disabled={isPending} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </FormControl>
-          </FormItem>
-        );
-      }}
-    />
+              <FormField
+                control={form.control}
+                name="phonetic"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-medium">Phiên âm</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ""}
+                        placeholder="/ˈmet.ə.fɔːr/"
+                        className="h-10"
+                        disabled={isPending}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="audioUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium flex items-center gap-2">
+                    <Speaker className="h-4 w-4" /> Link phát âm
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value || ""}
+                      placeholder="https://..."
+                      className="h-10"
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  <FormDescription>Link âm thanh từ từ điển (MP3, WAV...)</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </UICard>
+
+        <Separator />
+
+        {/* Section 2: Nghĩa và Phân loại */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" /> Nghĩa của từ
+            </h3>
+            <Badge variant="secondary" className="px-3 py-1 font-normal">
+              {fields.length} loại từ
+            </Badge>
+          </div>
+
+          <div className="space-y-8">
+            {fields.map((field, index) => (
+              <UICard key={field.id} className="overflow-hidden border-l-4 border-l-primary shadow-md">
+                <CardHeader className="bg-muted/30 pb-4">
+                  <div className="flex items-end justify-between gap-4">
+                    <div className="flex-1 max-w-50">
+                      <FormField
+                        control={form.control}
+                        name={`meanings.${index}.partOfSpeech`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase text-primary">Từ loại</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="noun, verb..."
+                                className="h-9 font-semibold"
+                                disabled={isPending}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => remove(index)}
+                      disabled={fields.length === 1 || isPending}
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                      <Trash2 className="h-4 w-4 mr-2" /> Xóa loại từ
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <DefinitionFields meaningIndex={index} control={form.control} disabled={isPending} />
+                </CardContent>
+              </UICard>
+            ))}
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full py-8 border-2 border-dashed hover:border-primary hover:text-primary transition-all bg-background"
+            onClick={() =>
+              append({ partOfSpeech: "", definitions: [{ definition: "", example: "", synonyms: [], antonyms: [] }] })
+            }
+            disabled={isPending}>
+            <Plus className="mr-2 h-5 w-5" /> Thêm một loại từ mới (Ví dụ: Động từ)
+          </Button>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-4 pt-4 sticky bottom-0 bg-background/80 backdrop-blur-sm py-4 border-t z-10">
+          <Button type="submit" size="lg" className="flex-1 shadow-lg shadow-primary/20" disabled={isPending}>
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Đang lưu...
+              </>
+            ) : (
+              "Tạo thẻ Flashcard"
+            )}
+          </Button>
+          {onCancel && (
+            <Button type="button" variant="outline" size="lg" onClick={onCancel} disabled={isPending}>
+              Hủy
+            </Button>
+          )}
+        </div>
+      </form>
+    </Form>
   );
-}
+};

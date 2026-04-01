@@ -1,26 +1,45 @@
-import * as z from "zod";
-export * from "../schemas";
-import * as schemas from "../schemas";
+// import { z } from "zod";
 
-/* =========================
-   1. INFERRED TYPES (Từ Zod Schemas)
-   ========================= */
-export type DeckFormData = z.input<typeof schemas.deckSchema> & {
-  isPublic: boolean;
-};
-export type CardFormData = z.infer<typeof schemas.cardSchema>;
-export type SyncReviewData = z.infer<typeof schemas.syncReviewSchema>;
+/**
+ * ==========================================
+ * ENUMS (Khớp với Prisma Schema)
+ * ==========================================
+ */
 
-/* =========================
-   2. DOMAIN INTERFACES (Cho API Response)
-   ========================= */
+export enum StudyMode {
+  ALL = "all",
+  HARD = "hard",
+  RECENT = "recent",
+  PREVIEW = "preview",
+  DEFAULT = "default",
+}
+
+export enum UserRole {
+  STUDENT = "STUDENT",
+  TEACHER = "TEACHER",
+  ADMIN = "ADMIN",
+}
+
+export enum DifficultyLevel {
+  BEGINNER = "BEGINNER",
+  INTERMEDIATE = "INTERMEDIATE",
+  ADVANCED = "ADVANCED",
+  EXAM_PREP = "EXAM_PREP",
+  COMMUNICATION = "COMMUNICATION",
+}
+
 export enum CardStatus {
   NEW = "NEW",
   LEARNING = "LEARNING",
   REVIEW = "REVIEW",
-  LAPSED = "LAPSED",
+  MASTERED = "MASTERED",
 }
 
+/**
+ * ==========================================
+ * SUB-TYPES (Embedded trong MongoDB)
+ * ==========================================
+ */
 export interface Definition {
   definition: string;
   example?: string;
@@ -33,97 +52,72 @@ export interface Meaning {
   definitions: Definition[];
 }
 
-export interface Card {
-  id: string;
-  word: string;
-  phonetic?: string;
-  audioUrl?: string;
-  meanings: Meaning[];
-  status: CardStatus;
-  interval: number;
-  repetition: number;
-  easeFactor: number;
-  nextReview: string;
-  deckId?: string;
-  lastGrade?: number;
-  lastReviewedAt?: string;
-}
-
-export interface Deck {
-  id: string;
-  title: string;
-  description?: string;
-  isPublic: boolean;
-  levelTag?: string;
-  createdAt: string;
-  _count?: {
-    cards: number;
-  };
-}
-
-export interface ReviewResult {
+export interface ReviewResultDto {
   cardId: string;
-  status: CardStatus;
-  interval: number;
-  repetition: number;
-  easeFactor: number;
-  nextReview: string;
-  lastGrade: number;
-  responseTime?: number;
+  rating: number; // bắt buộc
+  status?: CardStatus; // optional
+  interval?: number; // optional
+  repetitions?: number; // optional
+  easeFactor?: number; // optional
+  nextReview?: string; // optional
 }
+/**
+ * ==========================================
+ * CORE ENTITIES (Imported from schemas)
+ * ==========================================
+ */
+export type {
+  Deck,
+  Card,
+  UserStatsResponse,
+  HeatmapData,
+  StartSessionResponse,
+  DeckAnalyticsResponse,
+  ReviewForecastResponse,
+  EnrolledDeck,
+  DueCountResponse,
+  EnrollResponse,
+  BulkImportResponse,
+  SyncSessionResponse,
+  CancelSessionResponse,
+} from "../schemas";
 
-export interface HeatmapData {
-  date: string;
-  count: number;
-}
+/**
+ * ==========================================
+ * DTOs (Data Transfer Objects) cho API (Imported from schemas)
+ * ==========================================
+ */
+export type {
+  CreateDeckInput,
+  CreateCardInput,
+  BulkImportInput,
+  UpdateCardInput,
+  SyncSessionInput,
+  StartSessionInput,
+} from "../schemas";
 
-export interface ForecastData {
-  date: string;
-  cardCount: number;
-}
+/**
+ * ==========================================
+ * TOAST & UI TYPES
+ * ==========================================
+ */
+export type ToastVariant = "success" | "error" | "warning" | "info";
 
-// Interface cho các mutation không trả về data (chỉ success/message)
-export interface SimpleResponse {
-  success: boolean;
-  message: string;
-}
-
-export interface DashboardStats {
-  totalDecks: number;
-  totalCards: number;
-  cardsToReviewToday: number;
-  learningProgress: number;
-  // Bổ sung 2 dòng này để khớp với StatsOverview component
-  statusStats: Record<CardStatus, number>;
-  masteryRate: number;
-}
-
-// Cập nhật Deck để hỗ trợ xem chi tiết (Pre-fetch cards)
-export interface Deck {
-  id: string;
+export interface ToastPayload {
   title: string;
   description?: string;
-  isPublic: boolean;
-  levelTag?: string;
-  createdAt: string; // Thêm dòng này
-  updatedAt: string; // Thêm dòng này
-  _count?: {
-    cards: number;
-  };
-  cards?: Card[]; // Thêm trường này
+  variant?: ToastVariant;
+  durationMs?: number;
 }
 
-export interface ReviewSession {
-  id: string; // Backend trả về 'id'
-  userId: string;
-  deckId: string;
-  startTime: string;
-  cards: Card[];
-}
-
-export interface SyncReviewResponse {
-  success: boolean;
-  xpEarned: number;
-  cardsProcessed: number;
-  sessionId?: string;
+/**
+ * ==========================================
+ * SM-2 LOGIC TYPES
+ * ==========================================
+ */
+export interface SM2Result {
+  interval: number;
+  easeFactor: number;
+  repetitions: number;
+  nextReview: Date;
 }

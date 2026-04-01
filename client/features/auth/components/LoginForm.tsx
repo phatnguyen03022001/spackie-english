@@ -12,12 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter, Link } from "@/lib/i18n/routing";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Mail, LockKeyhole, ShieldCheck, Loader2 } from "lucide-react";
 
 export const LoginForm = () => {
   const router = useRouter();
-
-  // Tách biệt scope dịch
   const tTabs = useTranslations("auth.tabs");
   const tLogin = useTranslations("auth.login");
 
@@ -50,88 +48,146 @@ export const LoginForm = () => {
 
   return (
     <Tabs defaultValue="password" className="w-full">
-      {/* Tabs tự động hỗ trợ dark mode nhờ bg-muted/50 */}
-      <TabsList className="flex w-full mb-6 bg-muted/50 p-1 h-12 border border-border rounded-lg">
+      {/* Nâng cấp TabsList thành dạng Capsule hiện đại */}
+      <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/30 p-[2px] h-12 border border-border/50 rounded-xl backdrop-blur-sm">
         <TabsTrigger
           value="password"
-          className="flex-1 h-full data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all rounded-md">
+          className="flex items-center justify-center w-full h-full font-medium rounded-lg transition-all duration-300 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm">
           {tTabs("password")}
         </TabsTrigger>
+
         <TabsTrigger
           value="otp"
-          className="flex-1 h-full data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all rounded-md">
+          className="flex items-center justify-center w-full h-full font-medium rounded-lg transition-all duration-300 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm">
           {tTabs("otp")}
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="password" className="mt-0 ring-offset-background focus-visible:outline-none">
+      {/* Login with Password Content */}
+      <TabsContent
+        value="password"
+        title="password-login"
+        className="animate-in fade-in slide-in-from-left-4 duration-500 outline-none">
         <Form {...passwordForm}>
-          <form onSubmit={passwordForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+          <form onSubmit={passwordForm.handleSubmit(onLoginSubmit)} className="space-y-5">
             <FormField
               control={passwordForm.control}
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{tLogin("email_label")}</FormLabel>
-                  <FormControl>
-                    <Input placeholder="email@example.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
+                  <FormLabel className="text-foreground/80 font-medium">{tLogin("email_label")}</FormLabel>
+                  <div className="relative group">
+                    <Mail
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"
+                      size={18}
+                    />
+                    <FormControl>
+                      <Input
+                        placeholder="email@example.com"
+                        {...field}
+                        className="pl-10 h-11 bg-background/40 border-border/60 focus:border-primary transition-all rounded-lg"
+                      />
+                    </FormControl>
+                  </div>
+                  <FormMessage className="text-[13px]" />
                 </FormItem>
               )}
             />
+
             <FormField
               control={passwordForm.control}
               name="password"
               render={({ field }) => (
                 <FormItem>
                   <div className="flex justify-between items-center h-6">
-                    <FormLabel>{tLogin("password_label")}</FormLabel>
-                    <Link href="/forgot-password" className="text-xs text-primary hover:underline">
+                    <FormLabel className="text-foreground/80 font-medium">{tLogin("password_label")}</FormLabel>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-semibold text-primary/80 hover:text-primary hover:underline transition-all">
                       {tLogin("forgot_password")}
                     </Link>
                   </div>
-                  <div className="relative">
+                  <div className="relative group">
+                    <LockKeyhole
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"
+                      size={18}
+                    />
                     <FormControl>
-                      <Input type={showPassword ? "text" : "password"} className="pr-10" {...field} />
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        className="pl-10 pr-10 h-11 bg-background/40 border-border/60 focus:border-primary transition-all rounded-lg"
+                        {...field}
+                      />
                     </FormControl>
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors p-1">
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
-                  <FormMessage />
+                  <FormMessage className="text-[13px]" />
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full font-bold h-11" disabled={isLoginPending}>
-              {isLoginPending ? tLogin("processing") : tLogin("login_button")}
+
+            <Button
+              type="submit"
+              className="w-full font-bold h-12 bg-primary hover:opacity-90 shadow-xl shadow-primary/20 text-primary-foreground transition-all active:scale-[0.98] mt-2"
+              disabled={isLoginPending}>
+              {isLoginPending ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="animate-spin" size={18} />
+                  {tLogin("processing")}
+                </div>
+              ) : (
+                tLogin("login_button")
+              )}
             </Button>
           </form>
         </Form>
       </TabsContent>
 
-      <TabsContent value="otp" className="mt-0 ring-offset-background focus-visible:outline-none">
+      {/* Login with OTP Content */}
+      <TabsContent value="otp" className="animate-in fade-in slide-in-from-right-4 duration-500 outline-none">
         <div className="min-h-55">
           <Form {...otpForm}>
-            <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
+            <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-6">
               <FormField
                 control={otpForm.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{tLogin("email_label")}</FormLabel>
-                    <FormControl>
-                      <Input placeholder="email@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
+                    <FormLabel className="text-foreground/80 font-medium">{tLogin("email_label")}</FormLabel>
+                    <div className="relative group">
+                      <ShieldCheck
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"
+                        size={18}
+                      />
+                      <FormControl>
+                        <Input
+                          placeholder="email@example.com"
+                          {...field}
+                          className="pl-10 h-11 bg-background/40 border-border/60 focus:border-primary transition-all rounded-lg"
+                        />
+                      </FormControl>
+                    </div>
+                    <FormMessage className="text-[13px]" />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full font-bold h-11" disabled={isOtpPending}>
-                {isOtpPending ? tLogin("sending_otp") : tLogin("send_otp_button")}
+              <Button
+                type="submit"
+                className="w-full font-bold h-12 bg-primary hover:opacity-90 shadow-xl shadow-primary/20 text-primary-foreground transition-all active:scale-[0.98]"
+                disabled={isOtpPending}>
+                {isOtpPending ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="animate-spin" size={18} />
+                    {tLogin("sending_otp")}
+                  </div>
+                ) : (
+                  tLogin("send_otp_button")
+                )}
               </Button>
             </form>
           </Form>

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { AxiosError } from "axios";
 import { authApi } from "../api/auth-client";
 import { AuthResponse, MessageResponse, VerifyOtpDto } from "../types/auth.types";
-import { useAuth } from "../hooks/useAuthContext";
+import { useAuth } from "../hooks/useAuthProvider";
 import { useRouter } from "@/lib/i18n/routing"; // Sử dụng router đã cấu hình locale
 
 type VerifyOtpResponse = AuthResponse | MessageResponse;

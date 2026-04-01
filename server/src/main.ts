@@ -5,7 +5,6 @@ import { NestFactory } from '@nestjs/core';
 import { RequestMethod } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
-import { ResponseInterceptor } from '@/common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
 import { GlobalValidationPipe } from '@/common/pipes/validation.pipe';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -24,10 +23,7 @@ async function bootstrap() {
   const logger = app.get(Logger);
   app.useLogger(logger);
 
-  app.useGlobalInterceptors(
-    new ResponseInterceptor(),
-    new LoggerErrorInterceptor(),
-  );
+  app.useGlobalInterceptors(new LoggerErrorInterceptor());
 
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(GlobalValidationPipe);

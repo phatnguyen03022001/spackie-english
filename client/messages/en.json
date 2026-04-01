@@ -82,24 +82,29 @@
   },
 
   "sidebar": {
+    "user_fallback": "User",
     "light": "Light",
-    "dark": "Dark",
-    "user_fallback": "User"
+    "dark": "Dark"
   },
   "nav": {
-    "group_study": "Learning",
-    "group_teaching": "Teaching",
-    "group_system": "System",
     "dashboard": "Dashboard",
+    "vocabulary_explore": "Explore",
+    "my_decks": "My Decks",
+    "review": "Review",
+    "manage_decks": "Manage Decks",
     "listen": "Listening",
-    "vocabulary": "Vocabulary",
     "translate": "Translate",
-    "classes": "My Classes",
-    "grades": "Grading",
+    "classes": "Classes",
+    "grades": "Grades",
     "curriculum": "Curriculum",
     "users": "Users",
-    "logs": "System Logs",
-    "settings": "Settings"
+    "logs": "Logs",
+    "settings": "Settings",
+    "group_main": "Main",
+    "group_vocabulary": "Vocabulary",
+    "group_teaching": "Teaching",
+    "group_system": "System",
+    "group_tools": "Tools"
   },
   "Home": {
     "hero": {

@@ -53,77 +53,117 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(0.985 0.001 106.423);
-  --foreground: oklch(0.21 0.006 285.885);
+  --radius: 0.75rem; /* Tăng radius một chút để UI mềm mại, hiện đại hơn */
+  
+  /* --- LIGHT MODE --- */
+  /* Tone nền Slate sáng, có một chút sắc xanh nhẹ (Hue 260) để đồng bộ */
+  --background: oklch(0.99 0.002 260);
+  --foreground: oklch(0.15 0.01 260); /* Xám rất đậm, không dùng đen tuyền để dịu mắt */
+  
+  /* Card & Popover - Trắng tinh khiết để nổi bật trên nền background */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.15 0.01 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.006 285.885);
-  --primary: oklch(0.645 0.246 34.703);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.914 0.005 108.817);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.914 0.005 108.817);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.92 0.05 45);
-  --accent-foreground: oklch(0.45 0.2 35);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.844 0.011 111.353);
-  --input: oklch(0.844 0.011 111.353);
-  --ring: oklch(0.645 0.246 34.703);
-  --sidebar: oklch(0.97 0.001 106.423);
-  --sidebar-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-primary: oklch(0.645 0.246 34.703);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.914 0.005 108.817);
-  --sidebar-accent-foreground: oklch(0.645 0.246 34.703);
-  --sidebar-border: oklch(0.844 0.011 111.353);
-  --sidebar-ring: oklch(0.645 0.246 34.703);
+  --popover-foreground: oklch(0.15 0.01 260);
+  
+  /* Primary - Electric Indigo (Xanh tím) - Sang trọng, tin cậy, độ tương phản hoàn hảo */
+  --primary: oklch(0.55 0.2 260); 
+  --primary-foreground: oklch(0.99 0.01 260);
+  
+  /* Secondary - Xám nhạt, dùng cho các nút phụ */
+  --secondary: oklch(0.96 0.01 260);
+  --secondary-foreground: oklch(0.25 0.02 260);
+  
+  /* Muted - Dành cho các thành phần vô hiệu hóa hoặc background phụ */
+  --muted: oklch(0.96 0.01 260);
+  --muted-foreground: oklch(0.5 0.02 260);
+  
+  /* Accent - Dùng khi hover (ví dụ: dropdown menu items) */
+  --accent: oklch(0.94 0.02 260);
+  --accent-foreground: oklch(0.2 0.02 260);
+  
+  /* Destructive - Đỏ Ruby đậm vừa, không quá chói */
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  
+  /* Utilities */
+  --border: oklch(0.9 0.015 260);
+  --input: oklch(0.9 0.015 260);
+  --ring: oklch(0.55 0.2 260);
+  
+  /* Sidebar */
+  --sidebar: oklch(0.98 0.005 260);
+  --sidebar-foreground: oklch(0.2 0.02 260);
+  --sidebar-primary: oklch(0.55 0.2 260);
+  --sidebar-primary-foreground: oklch(0.99 0.01 260);
+  --sidebar-accent: oklch(0.94 0.02 260);
+  --sidebar-accent-foreground: oklch(0.2 0.02 260);
+  --sidebar-border: oklch(0.9 0.015 260);
+  --sidebar-ring: oklch(0.55 0.2 260);
 }
 
 .dark {
-  --background: oklch(0.12 0.005 285.823);
-  --foreground: oklch(0.98 0.001 286.32);
-  --card: oklch(0.197 0.005 285.885);
-  --card-foreground: oklch(0.92 0.004 286.32);
-  --popover: oklch(0.141 0.005 285.823);
-  --popover-foreground: oklch(0.92 0.004 286.32);
-  --primary: oklch(0.68 0.21 47.6);
-  --primary-foreground: oklch(0.141 0.005 285.823);
-  --secondary: oklch(0.268 0.007 285.885);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.268 0.007 285.885);
-  --muted-foreground: oklch(0.65 0.01 285.938);
-  --accent: oklch(0.25 0.05 45);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.25 0.007 285.885);
-  --input: oklch(0.268 0.007 285.885);
-  --ring: oklch(0.705 0.213 47.604);
-  --sidebar: oklch(0.16 0.005 285.885);
-  --sidebar-foreground: oklch(0.95 0.004 286.32);
-  --sidebar-primary: oklch(0.705 0.213 47.604);
-  --sidebar-primary-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-accent: oklch(0.268 0.007 285.885);
-  --sidebar-accent-foreground: oklch(0.705 0.213 47.604);
-  --sidebar-border: oklch(0.268 0.007 285.885);
-  --sidebar-ring: oklch(0.705 0.213 47.604);
+  /* --- DARK MODE --- */
+  /* Nền tối sâu (Deep Slate), giúp thiết kế có chiều sâu hơn là màu đen kịt */
+  --background: oklch(0.14 0.01 260);
+  --foreground: oklch(0.98 0.005 260);
+  
+  /* Card nổi bật nhẹ so với background */
+  --card: oklch(0.18 0.015 260);
+  --card-foreground: oklch(0.98 0.005 260);
+  --popover: oklch(0.18 0.015 260);
+  --popover-foreground: oklch(0.98 0.005 260);
+  
+  /* Primary - Sáng hơn ở Dark Mode để nổi bật, chữ chuyển sang tối để đảm bảo Contrast Ratio */
+  --primary: oklch(0.65 0.2 260);
+  --primary-foreground: oklch(0.1 0.01 260);
+  
+  /* Secondary & Muted */
+  --secondary: oklch(0.25 0.02 260);
+  --secondary-foreground: oklch(0.98 0.005 260);
+  
+  --muted: oklch(0.2 0.015 260);
+  --muted-foreground: oklch(0.7 0.015 260);
+  
+  /* Accent */
+  --accent: oklch(0.22 0.02 260);
+  --accent-foreground: oklch(0.98 0.005 260);
+  
+  /* Destructive */
+  --destructive: oklch(0.45 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  
+  /* Utilities */
+  --border: oklch(0.25 0.02 260);
+  --input: oklch(0.25 0.02 260);
+  --ring: oklch(0.65 0.2 260);
+  
+  /* Sidebar */
+  --sidebar: oklch(0.16 0.015 260);
+  --sidebar-foreground: oklch(0.98 0.005 260);
+  --sidebar-primary: oklch(0.65 0.2 260);
+  --sidebar-primary-foreground: oklch(0.1 0.01 260);
+  --sidebar-accent: oklch(0.22 0.02 260);
+  --sidebar-accent-foreground: oklch(0.98 0.005 260);
+  --sidebar-border: oklch(0.25 0.02 260);
+  --sidebar-ring: oklch(0.65 0.2 260);
 }
 
-/* @utility PHẢI nằm ở cấp cao nhất, không lồng trong @layer */
+/* Glass utilities - Tinh chỉnh lại độ trong suốt và thêm shadow mờ để tách lớp (layering) tốt hơn */
 @utility glass {
-  background-color: color-mix(in srgb, white 10%, transparent);
-  backdrop-filter: blur(24px);
-  border: 1px solid color-mix(in srgb, white 10%, transparent);
+  background-color: color-mix(in oklch, var(--background) 70%, transparent);
+  backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+  color: var(--foreground);
 }
 
 @utility glass-dark {
-  background-color: color-mix(in srgb, black 40%, transparent);
-  backdrop-filter: blur(24px);
-  border: 1px solid color-mix(in srgb, white 5%, transparent);
+  background-color: color-mix(in oklch, var(--background) 75%, transparent);
+  backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  color: var(--foreground);
 }
 
 @utility glass-panel {
@@ -133,9 +173,11 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    /* Tối ưu hóa performance animation, không animate toàn bộ * nếu không cần thiết, 
+       nhưng ở quy mô nhỏ thì vẫn ổn */
+    transition: background-color 0.2s ease-out, border-color 0.2s ease-out, color 0.2s ease-out;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased; /* Thêm antialiased để font chữ sắc nét hơn */
   }
 }

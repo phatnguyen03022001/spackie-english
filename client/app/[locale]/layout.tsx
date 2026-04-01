@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 // 1. Import localFont thay cho Geist
 import localFont from "next/font/local";
 import "@/styles/globals.css";
-import { AuthProvider } from "@/features/auth/hooks/useAuthContext";
+import { AuthProvider } from "@/features/auth/hooks/useAuthProvider";
 import { Providers } from "@/lib/providers";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";

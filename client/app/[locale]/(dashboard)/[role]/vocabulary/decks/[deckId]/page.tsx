@@ -2,188 +2,100 @@
 
 import React from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { vocabApi } from "@/features/vocabulary/api/vocab-client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { BookOpen, ArrowLeft, Layers, Calendar, Globe, Lock, CheckCircle2, PlusCircle, Loader2 } from "lucide-react";
-import { toast } from "sonner";
-import { format } from "date-fns";
-import { vi } from "date-fns/locale";
+import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { DeckPreview } from "@/features/vocabulary/components/public/deck-preview";
+import { useDeckPreview } from "@/features/vocabulary/api";
+
+/**
+ * PAGE: Deck Preview
+ * Đồng bộ hóa với ngôn ngữ thiết kế Glassmorphism & Modern Typography
+ */
 export default function DeckPreviewPage() {
   const params = useParams();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const deckId = params.deckId as string;
-  const role = params.role as string;
 
-  // 1. Lấy thông tin xem trước của bộ thẻ (Deck + Cards)
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["deck-preview", deckId],
-    queryFn: () => vocabApi.getDeckPreview(deckId),
-    enabled: !!deckId,
-  });
+  const deckId = params?.deckId as string;
+  const locale = params?.locale as string;
+  const role = params?.role as string;
 
-  // 2. Kiểm tra xem người dùng đã đăng ký bộ thẻ này chưa
-  // (Dựa vào danh sách enrolled-decks đã fetch ở Dashboard)
-  const { data: enrolledDecks } = useQuery({
-    queryKey: ["enrolled-decks"],
-    queryFn: () => vocabApi.getMyEnrolledDecks(),
-  });
+  const { data: deck, isLoading, isError, refetch } = useDeckPreview(deckId);
 
-  const isEnrolled = enrolledDecks?.some((d) => d.id === deckId);
+  // --- 1. Loading State (Đồng bộ hiệu ứng Glow) ---
+  if (isLoading) {
+    return (
+      <div className="relative flex flex-col items-center justify-center min-h-[75vh] overflow-hidden">
+        <div className="absolute inset-0 bg-primary/5 blur-[120px] rounded-full scale-50 animate-pulse" />
 
-  // 3. Mutation: Đăng ký học
-  const enrollMutation = useMutation({
-    mutationFn: () => vocabApi.enrollDeck(deckId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["enrolled-decks"] });
-      toast.success("Đã đăng ký bộ thẻ thành công!");
-    },
-    onError: () => toast.error("Không thể đăng ký bộ thẻ này"),
-  });
-
-  if (isLoading) return <DeckPreviewSkeleton />;
-  if (error || !data) return <div className="text-center py-20">Không tìm thấy bộ thẻ.</div>;
-
-  const deck = data;
-  const cards = data?.cards || [];
-
-  return (
-    <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-5xl">
-      {/* Nút quay lại */}
-      <Button variant="ghost" onClick={() => router.back()} className="gap-2 -ml-2 text-muted-foreground">
-        <ArrowLeft className="h-4 w-4" /> Quay lại
-      </Button>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* CỘT TRÁI: THÔNG TIN CHI TIẾT */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="px-2 py-0">
-                {deck.levelTag || "General"}
-              </Badge>
-              <span className="text-sm text-muted-foreground flex items-center gap-1">
-                {deck.isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                {deck.isPublic ? "Công khai" : "Riêng tư"}
-              </span>
-            </div>
-
-            <h1 className="text-4xl font-bold tracking-tight">{deck.title}</h1>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              {deck.description || "Chưa có mô tả chi tiết cho bộ thẻ này."}
-            </p>
-
-            <div className="flex flex-wrap gap-4 pt-2">
-              <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full text-sm">
-                <Layers className="h-4 w-4 text-primary" />
-                <span className="font-medium">{cards.length} thẻ ghi nhớ</span>
-              </div>
-              <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full text-sm">
-                <Calendar className="h-4 w-4 text-primary" />
-                <span>
-                  Cập nhật:{" "}
-                  {deck.updatedAt ? format(new Date(deck.updatedAt), "dd MMMM, yyyy", { locale: vi }) : "Vừa mới đây"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4 pt-6">
-            <h2 className="text-2xl font-semibold flex items-center gap-2">
-              <BookOpen className="h-5 w-5" /> Danh sách từ vựng ({cards.length})
-            </h2>
-            <div className="grid gap-3">
-              {cards.map((card) => {
-                // Tìm nghĩa tiếng Việt (thường là phần người dùng quan tâm nhất ở trang Preview)
-                const vnMeaning = card.meanings.find((m) => m.partOfSpeech === "Vietnamese") || card.meanings[0];
-
-                return (
-                  <div
-                    key={card.id}
-                    className="p-4 rounded-xl border bg-card hover:border-primary/50 transition-colors flex justify-between items-center group">
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-lg text-foreground">{card.word}</span>
-                        <span className="text-sm text-muted-foreground italic font-serif">{card.phonetic}</span>
-                      </div>
-                      <p className="text-sm text-primary font-medium mt-1">
-                        {vnMeaning?.definitions[0]?.definition || "Chưa có định nghĩa"}
-                      </p>
-                    </div>
-                    <PlusCircle className="h-4 w-4 text-muted-foreground/20 group-hover:text-primary transition-all" />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        <div className="relative mb-8">
+          <Loader2 className="h-16 w-16 animate-spin text-primary/10 stroke-[1]" />
+          <Loader2 className="h-16 w-16 animate-spin text-primary absolute top-0 left-0 [animation-delay:-0.3s] stroke-[3]" />
         </div>
 
-        {/* CỘT PHẢI: HÀNH ĐỘNG (Sticky) */}
-        <div className="lg:col-span-1">
-          <Card className="sticky top-24">
-            <CardHeader>
-              <CardTitle>Bắt đầu học ngay</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Đăng ký bộ thẻ này để thuật toán SM-2 giúp bạn ghi nhớ từ vựng vĩnh viễn qua các phiên ôn tập hàng ngày.
-              </p>
-
-              {isEnrolled ? (
-                <div className="space-y-3">
-                  <Button className="w-full gap-2" variant="secondary" disabled>
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    Đã đăng ký học
-                  </Button>
-                  <Button className="w-full" onClick={() => router.push(`/${role}/vocabulary/review?deckId=${deckId}`)}>
-                    Vào học ngay
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  className="w-full gap-2"
-                  size="lg"
-                  disabled={enrollMutation.isPending}
-                  onClick={() => enrollMutation.mutate()}>
-                  {enrollMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <PlusCircle className="h-4 w-4" />
-                  )}
-                  Đăng ký bộ thẻ
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+        <div className="space-y-2 text-center relative">
+          <p className="text-primary font-black tracking-[0.3em] uppercase text-[10px] animate-pulse">Spackie Studio</p>
+          <p className="text-muted-foreground/60 font-bold text-sm">Đang chuẩn bị dữ liệu giới thiệu...</p>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-function DeckPreviewSkeleton() {
-  return (
-    <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-5xl">
-      <Skeleton className="h-10 w-24" />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-4">
-          <Skeleton className="h-12 w-3/4" />
-          <Skeleton className="h-6 w-1/2" />
-          <div className="space-y-2 pt-8">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full" />
-            ))}
-          </div>
+  // --- 2. Error State (Đồng bộ phong cách Content-only) ---
+  if (isError || !deck) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[75vh] px-6 text-center animate-in fade-in zoom-in-95 duration-500">
+        <div className="relative mb-10">
+          <div className="absolute inset-0 bg-destructive/10 blur-[60px] rounded-full" />
+          <AlertCircle size={80} strokeWidth={0.5} className="relative text-destructive/40" />
         </div>
-        <div className="lg:col-span-1">
-          <Skeleton className="h-64 w-full" />
+
+        <h1 className="text-3xl font-black tracking-tighter mb-3">Không tìm thấy nội dung</h1>
+        <p className="text-muted-foreground max-w-sm mb-12 font-medium opacity-80">
+          Có vẻ như đường dẫn này không tồn tại hoặc tác giả đã chuyển bộ thẻ sang chế độ riêng tư.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-xs sm:max-w-none justify-center">
+          <Button
+            variant="ghost"
+            onClick={() => router.push(`/${locale}/${role}/vocabulary/decks`)}
+            className="h-12 rounded-2xl font-black text-xs uppercase tracking-widest glass border-primary/5 cursor-pointer px-8">
+            <ArrowLeft className="mr-2 h-4 w-4 stroke-[3]" /> Khám phá bộ khác
+          </Button>
+          <Button
+            onClick={() => refetch()}
+            className="h-12 rounded-2xl font-black text-xs uppercase tracking-widest bg-primary shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all cursor-pointer px-8">
+            Thử lại ngay
+          </Button>
         </div>
       </div>
-    </div>
+    );
+  }
+
+  // --- 3. Main Layout ---
+  return (
+    <main className="max-w-7xl mx-auto space-y-8 pb-20 pt-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out px-1">
+      {/* Nút quay lại tinh tế - Style tối giản */}
+      <div className="flex items-center">
+        <button
+          onClick={() => router.back()}
+          className="group flex items-center gap-3 text-muted-foreground hover:text-primary transition-all cursor-pointer">
+          <div className="h-8 w-8 rounded-full glass border-primary/5 flex items-center justify-center group-hover:border-primary/30 group-hover:bg-primary/5 transition-all">
+            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform stroke-[3]" />
+          </div>
+          <span className="font-black text-[10px] uppercase tracking-[0.2em] opacity-60 group-hover:opacity-100 transition-opacity">
+            Quay lại thư viện
+          </span>
+        </button>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="relative group">
+        {/* Một chút nhấn nhá phía sau component chính */}
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/5 blur-[100px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+
+        <DeckPreview deck={deck} />
+      </div>
+    </main>
   );
 }
