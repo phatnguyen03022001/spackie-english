@@ -4,8 +4,6 @@ import React, { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Plus,
-  Eye,
-  EyeOff,
   Trash2,
   MoreHorizontal,
   Search,
@@ -16,8 +14,9 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { useMyDecks, useDeleteDeck, useTogglePublicStatus } from "@/features/vocabulary/api/use-management";
+import { useMyDecks, useDeleteDeck } from "@/features/vocabulary/api/use-management";
 import { DeckForm } from "@/features/vocabulary/components/management/deck-form";
+import { TogglePublicButton } from "@/features/vocabulary/components/shared";
 import { DifficultyLevel } from "@/features/vocabulary/types";
 
 import { Button } from "@/components/ui/button";
@@ -65,16 +64,15 @@ export default function VocabularyManagePage() {
 
   const { data: decks, isLoading } = useMyDecks();
   const { mutate: deleteDeck, isPending: isDeleting } = useDeleteDeck();
-  const { mutate: toggleStatus } = useTogglePublicStatus();
 
   const filteredDecks = decks?.filter((deck) => deck.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const getLevelBadge = (level: DifficultyLevel) => {
     const configs: Record<DifficultyLevel, { label: string; class: string }> = {
-      [DifficultyLevel.BEGINNER]: { label: "Cơ bản", class: "bg-blue-500/10 text-blue-600" },
-      [DifficultyLevel.INTERMEDIATE]: { label: "Trung cấp", class: "bg-orange-500/10 text-orange-600" },
-      [DifficultyLevel.ADVANCED]: { label: "Nâng cao", class: "bg-purple-500/10 text-purple-600" },
-      [DifficultyLevel.EXAM_PREP]: { label: "Luyện thi", class: "bg-red-500/10 text-red-600" },
+      [DifficultyLevel.BEGINNER]: { label: "Cơ bản", class: "bg-primary/10 text-primary" },
+      [DifficultyLevel.INTERMEDIATE]: { label: "Trung cấp", class: "bg-accent/10 text-accent-foreground" },
+      [DifficultyLevel.ADVANCED]: { label: "Nâng cao", class: "bg-secondary/10 text-secondary-foreground" },
+      [DifficultyLevel.EXAM_PREP]: { label: "Luyện thi", class: "bg-destructive/10 text-destructive" },
       [DifficultyLevel.COMMUNICATION]: { label: "Giao tiếp", class: "bg-emerald-500/10 text-emerald-600" },
     };
     const config = configs[level] || { label: level, class: "" };
@@ -195,20 +193,7 @@ export default function VocabularyManagePage() {
                   </TableCell>
                   <TableCell>{getLevelBadge(deck.levelTag)}</TableCell>
                   <TableCell>
-                    <button
-                      onClick={() => toggleStatus({ id: deck.id, isPublic: !deck.isPublic })}
-                      className={`inline-flex items-center rounded-full h-7 px-3 text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                        deck.isPublic
-                          ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
-                          : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                      }`}>
-                      {deck.isPublic ? (
-                        <Eye className="w-3 h-3 mr-1.5 stroke-[3]" />
-                      ) : (
-                        <EyeOff className="w-3 h-3 mr-1.5 stroke-[3]" />
-                      )}
-                      {deck.isPublic ? "Công khai" : "Riêng tư"}
-                    </button>
+                    <TogglePublicButton deckId={deck.id} isPublic={deck.isPublic} size="sm" />
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="inline-flex flex-col items-center">

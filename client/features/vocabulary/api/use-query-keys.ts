@@ -12,6 +12,7 @@ export const vocabKeys = {
   enrolled: () => [...vocabKeys.all, "learning", "enrolled"] as const,
   dueCount: () => [...vocabKeys.all, "learning", "due-count"] as const,
   sessions: () => [...vocabKeys.all, "learning", "sessions"] as const,
+  recommended: () => [...vocabKeys.all, "learning", "recommended"] as const,
 
   // Dashboard
   stats: () => [...vocabKeys.all, "dashboard", "stats"] as const,

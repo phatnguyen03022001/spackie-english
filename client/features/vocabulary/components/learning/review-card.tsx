@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Volume2, CheckCircle2, XCircle, Languages } from "lucide-react";
+import { Volume2, CheckCircle2, XCircle, Languages, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 
 /* =========================
-   Types (Sửa lỗi TS)
+   Types
 ========================= */
 interface Definition {
   definition: string;
@@ -29,32 +29,40 @@ interface Word {
 
 interface Card {
   id: string;
-  word: Word; // word là object, không phải string
+  word: Word;
 }
 
 interface ReviewCardProps {
   card: Card;
   isFlipped: boolean;
   onFlip: () => void;
+  onCorrectnessChange?: (isCorrect: boolean) => void;
 }
 
 /* =========================
    Component
 ========================= */
-export const ReviewCard = ({ card, isFlipped, onFlip }: ReviewCardProps) => {
+export const ReviewCard = ({ card, isFlipped, onFlip, onCorrectnessChange }: ReviewCardProps) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [userInput, setUserInput] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Focus vào ô input khi thẻ mới hiện ra (Mặt trước)
+  // So sánh kết quả: không phân biệt hoa thường, bỏ khoảng trắng đầu cuối
+  const isCorrect = userInput.trim().toLowerCase() === card.word.word.trim().toLowerCase();
+
   useEffect(() => {
     if (!isFlipped) {
       inputRef.current?.focus();
     }
   }, [card.id, isFlipped]);
 
-  // Tự động phát âm thanh khi lật sang mặt sau
+  useEffect(() => {
+    if (isFlipped && inputRef.current) {
+      inputRef.current.blur();
+    }
+  }, [isFlipped]);
+
   useEffect(() => {
     if (isFlipped && card.word.audioUrl && audioRef.current) {
       audioRef.current.play().catch((err) => console.log("Audio play blocked:", err));
@@ -66,6 +74,7 @@ export const ReviewCard = ({ card, isFlipped, onFlip }: ReviewCardProps) => {
     if (isSubmitted || isFlipped) return;
     setIsSubmitted(true);
     onFlip();
+    onCorrectnessChange?.(isCorrect);
   };
 
   const playAudio = (e: React.MouseEvent) => {
@@ -73,77 +82,79 @@ export const ReviewCard = ({ card, isFlipped, onFlip }: ReviewCardProps) => {
     audioRef.current?.play();
   };
 
-  // So sánh kết quả: không phân biệt hoa thường, bỏ khoảng trắng đầu cuối
-  const isCorrect = userInput.trim().toLowerCase() === card.word.word.trim().toLowerCase();
-
   return (
-    <div className="group w-full max-w-md h-125 select-none perspective-[1000px]">
+    <div className="group w-full h-112.5 sm:h-125 select-none perspective-[1000px]">
       <div
         className={cn(
-          "relative w-full h-full transition-all duration-500 transform-3d shadow-2xl rounded-3xl border bg-card",
+          "relative w-full h-full transition-all duration-500 transform-3d",
           isFlipped ? "transform-[rotateY(180deg)]" : "",
         )}>
         {/* MẶT TRƯỚC (FRONT): Hiển thị nghĩa tiếng Việt/Định nghĩa */}
-        <div className="absolute inset-0 backface-hidden flex flex-col p-8 text-center" aria-hidden={isFlipped}>
-          <div className="flex flex-col items-center justify-center flex-1 space-y-6">
-            <div className="p-3 rounded-2xl bg-primary/10 text-primary">
-              <Languages size={24} />
+        <div
+          className="absolute inset-0 backface-hidden flex flex-col p-5 sm:p-6 text-center glass dark:glass-dark rounded-(--radius-2xl)"
+          aria-hidden={isFlipped}>
+          <div className="flex flex-col items-center justify-center flex-1 space-y-4 sm:space-y-6">
+            <div className="p-3 rounded-2xl bg-primary/10 text-primary shrink-0">
+              <Languages size={24} className="sm:w-7 sm:h-7" />
             </div>
 
-            <div className="space-y-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+            <div className="space-y-2 flex-1 flex flex-col justify-center">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground/70">
                 Dịch sang tiếng Anh
               </span>
-              <h2 className="text-2xl font-bold leading-tight text-foreground line-clamp-4">
+              <h2 className="text-lg sm:text-xl font-bold leading-tight text-foreground line-clamp-4">
                 {card.word.meanings[0]?.definitions[0]?.definition || "Không có định nghĩa"}
               </h2>
             </div>
 
-            <form onSubmit={handleSubmit} className="w-full pt-8 space-y-4">
+            <form onSubmit={handleSubmit} className="w-full pt-4 sm:pt-6 space-y-3 sm:space-y-4 shrink-0">
               <div className="relative">
                 <Input
                   ref={inputRef}
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
+                  disabled={isFlipped}
                   onKeyDown={(e) => {
-                    // CHẶN PHÍM TẮT: Không cho phím Space/Enter lật thẻ sớm khi đang gõ
                     if (e.code === "Space") e.stopPropagation();
                   }}
                   placeholder="Nhập từ tiếng Anh..."
-                  className="h-16 text-center text-2xl font-black bg-muted/50 border-2 border-primary/10 focus-visible:border-primary focus-visible:ring-0 rounded-2xl transition-all"
+                  className="h-12 sm:h-14 text-center text-lg sm:text-xl font-bold bg-background/50 backdrop-blur-sm rounded-xl transition-all focus:ring-2 focus:ring-primary/50 border-primary/20"
                   autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
                 />
               </div>
+
               <Button
                 type="submit"
-                className="w-full h-12 font-black rounded-xl shadow-lg shadow-primary/20 uppercase tracking-widest">
+                className={cn(
+                  "w-full h-12 font-bold rounded-xl shadow-sm",
+                  "bg-primary text-primary-foreground hover:bg-primary/90",
+                  "transition-all duration-200 ease-out",
+                  "hover:scale-[1.02] active:scale-[0.98]",
+                )}>
+                <ArrowRight className="mr-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 Kiểm tra (Enter)
               </Button>
             </form>
           </div>
-
-          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest opacity-30">
-            Mẹo: Nhập rồi nhấn Enter
-          </p>
         </div>
 
         {/* MẶT SAU (BACK): Kết quả và Chi tiết từ vựng */}
         <div
-          className="absolute inset-0 backface-hidden transform-[rotateY(180deg)] flex flex-col p-6 overflow-hidden bg-card rounded-3xl"
+          className="absolute inset-0 backface-hidden transform-[rotateY(180deg)] flex flex-col p-5 sm:p-6 overflow-hidden glass dark:glass-dark rounded-[var(--radius-2xl)]"
           aria-hidden={!isFlipped}>
           {/* Banner kết quả */}
           <div
             className={cn(
-              "flex flex-col items-center gap-1 px-4 py-4 rounded-2xl mb-4 border animate-in zoom-in duration-300",
+              "flex flex-col items-center gap-1 px-4 py-2.5 sm:py-3 rounded-xl mb-3 sm:mb-4 border backdrop-blur-md shrink-0",
               isCorrect
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600"
-                : "bg-red-500/10 border-red-500/20 text-red-600",
+                ? "bg-success/15 border-success/30 text-success dark:text-success-foreground"
+                : "bg-destructive/10 border-destructive/20 text-destructive",
             )}>
             <div className="flex items-center gap-2">
-              {isCorrect ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
-              <span className="text-sm font-black uppercase tracking-tighter">
+              {isCorrect ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+              <span className="text-sm font-bold uppercase tracking-tight">
                 {isCorrect ? "Chính xác!" : "Chưa đúng rồi"}
               </span>
             </div>
@@ -153,10 +164,10 @@ export const ReviewCard = ({ card, isFlipped, onFlip }: ReviewCardProps) => {
           </div>
 
           {/* Thông tin từ vựng chính */}
-          <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+          <div className="flex items-center justify-between border-b border-border/50 pb-3 sm:pb-4 mb-3 sm:mb-4 shrink-0">
             <div className="text-left">
-              <h2 className="text-3xl font-black text-foreground tracking-tighter">{card.word.word}</h2>
-              <p className="text-sm font-mono text-primary font-bold">{card.word.phonetic}</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">{card.word.word}</h2>
+              <p className="text-sm font-mono text-primary font-semibold">{card.word.phonetic}</p>
             </div>
             {card.word.audioUrl && (
               <div className="flex items-center">
@@ -164,30 +175,30 @@ export const ReviewCard = ({ card, isFlipped, onFlip }: ReviewCardProps) => {
                 <Button
                   size="icon"
                   variant="secondary"
-                  className="rounded-full h-12 w-12 shadow-sm hover:bg-primary hover:text-white transition-colors"
+                  className="rounded-full h-10 w-10 hover:bg-primary hover:text-primary-foreground transition-all duration-200 hover:scale-105 active:scale-95 bg-background/50 border border-border/50"
                   onClick={playAudio}>
-                  <Volume2 size={20} />
+                  <Volume2 size={18} />
                 </Button>
               </div>
             )}
           </div>
 
           {/* Danh sách nghĩa chi tiết */}
-          <ScrollArea className="flex-1 pr-2">
-            <div className="space-y-6 pb-4">
+          <ScrollArea className="flex-1 pr-3 -mr-3">
+            <div className="space-y-5 pb-4">
               {card.word.meanings.map((meaning, mIdx) => (
                 <div key={mIdx} className="space-y-3">
                   <div className="flex items-center">
-                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-primary text-primary-foreground">
+                    <span className="text-[10px] sm:text-xs font-bold uppercase px-2 py-0.5 rounded-md bg-primary/20 text-primary border border-primary/20">
                       {meaning.partOfSpeech}
                     </span>
                   </div>
-                  <div className="space-y-4 pl-1">
+                  <div className="space-y-3 sm:space-y-4 pl-1">
                     {meaning.definitions.map((def, dIdx) => (
-                      <div key={dIdx} className="pl-4 border-l-2 border-border group">
+                      <div key={dIdx} className="pl-3 sm:pl-4 border-l-2 border-primary/30 group">
                         <p className="text-sm font-medium leading-relaxed text-foreground/90">{def.definition}</p>
                         {def.example && (
-                          <p className="text-xs text-muted-foreground mt-2 italic bg-muted/50 p-2 rounded-lg border border-border/50">
+                          <p className="text-xs text-muted-foreground mt-1.5 sm:mt-2 italic bg-background/40 backdrop-blur-sm p-2 rounded-lg border border-border/30">
                             &quot;{def.example}&quot;
                           </p>
                         )}

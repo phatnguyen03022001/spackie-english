@@ -56,11 +56,27 @@ export const usePublicDecks = (
     placeholderData: (previousData) => previousData,
   });
 
-export const useDeckPreview = (id: string) =>
+export interface DeckPreviewParams {
+  limit?: number;
+  page?: number;
+}
+
+/**
+ * Get deck preview with pagination support
+ * @param id - Deck ID
+ * @param params - Pagination parameters (limit, page)
+ * @returns Deck preview with paginated cards
+ */
+export const useDeckPreview = (id: string, params?: DeckPreviewParams) =>
   useQuery({
     queryKey: vocabKeys.preview(id),
     queryFn: async () => {
-      const res = await api.get(`/vocab/decks/${id}/preview`);
+      const res = await api.get(`/vocab/decks/${id}/preview`, {
+        params: {
+          limit: params?.limit || 50,
+          page: params?.page || 1,
+        },
+      });
       try {
         return DeckSchema.extend({
           cards: z.array(
@@ -69,6 +85,13 @@ export const useDeckPreview = (id: string) =>
               word: WordSchema,
             }),
           ),
+          meta: z
+            .object({
+              totalCards: z.number(),
+              page: z.number(),
+              lastPage: z.number(),
+            })
+            .optional(),
         }).parse(res.data.data);
       } catch (err) {
         console.error("Parse error in useDeckPreview:", err);
@@ -91,6 +114,8 @@ export const useEnrollDeck = () => {
       queryClient.invalidateQueries({ queryKey: vocabKeys.enrolled() });
       queryClient.invalidateQueries({ queryKey: vocabKeys.dueCount() });
       queryClient.invalidateQueries({ queryKey: vocabKeys.deck(deckId) });
+      queryClient.invalidateQueries({ queryKey: vocabKeys.preview(deckId) });
+      queryClient.invalidateQueries({ queryKey: vocabKeys.public() });
       toast.success("Đăng ký thành công! Bắt đầu học ngay nhé.");
       // Không push router ở đây nữa
     },
@@ -111,6 +136,8 @@ export const useUnenrollDeck = () => {
       queryClient.invalidateQueries({ queryKey: vocabKeys.enrolled() });
       queryClient.invalidateQueries({ queryKey: vocabKeys.dueCount() });
       queryClient.invalidateQueries({ queryKey: vocabKeys.deck(deckId) });
+      queryClient.invalidateQueries({ queryKey: vocabKeys.preview(deckId) });
+      queryClient.invalidateQueries({ queryKey: vocabKeys.public() });
       toast.success("Hủy đăng ký thành công");
     },
     onError: (error: AxiosError<ApiError>) => {

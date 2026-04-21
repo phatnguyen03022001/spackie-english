@@ -8,9 +8,12 @@
       "@/*": ["./src/*"],
       "@common/*": ["./src/common/*"],
       "@config/*": ["./src/config/*"],
-      "@module/*": ["./src/module/*"]
+      "@infrastructure/*": ["./src/infrastructure/*"],
+      "@database/*": ["./src/database/*"],
+      "@jobs/*": ["./src/jobs/*"],
+      "@modules/*": ["./src/modules/*"]
     },
-    "strict": false,
+    "strict": true,
     "types": ["node", "multer"],
     "esModuleInterop": true,
     "isolatedModules": false,
@@ -26,6 +29,6 @@
   "include": [
     "src/**/*.ts",
     "types/**/*.d.ts"
-  ],
+, "src/infrastructure/pusher/ws.adapter.ts.deprecated"  ],
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma/generated"]
 }

@@ -1,85 +1,168 @@
+// src/common/filters/http-exception.filter.ts
+
 import {
   ArgumentsHost,
   Catch,
   ExceptionFilter,
   HttpException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { ApiResponseDto } from '../dto/api-response.dto';
+import { LoggerService } from '../logger/logger.service';
+import { ErrorResponseDto } from '../dto/error-response.dto';
+import { ERROR_CODES } from '@common/constants';
 
-@Catch()
+@Catch(HttpException, Error)
 export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(HttpExceptionFilter.name);
+  constructor(private readonly logger: LoggerService) {
+    this.logger.setContext(HttpExceptionFilter.name);
+  }
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const { request, response } = this.getContext(host);
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    const { status, code, message, details, stack } =
+      this.normalizeException(exception);
 
-    const rawMessage =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : 'Internal server error';
-
-    const message = this.formatMessage(rawMessage);
-    const formattedMessage = Array.isArray(message) ? message[0] : message;
-
-    const logPayload = {
+    const errorResponse = new ErrorResponseDto(
       status,
-      path: request.originalUrl,
-      method: request.method,
-      query: request.query,
-      params: request.params,
+      code,
       message,
+      request.url,
+      details,
+    );
+
+    this.logException(
+      request,
+      status,
+      code,
+      message,
+      exception,
+      stack,
+      details,
+    );
+
+    response.status(status).json(errorResponse);
+  }
+
+  // =====================
+  // CONTEXT HELPERS
+  // =====================
+  private getContext(host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+
+    return {
+      request: ctx.getRequest<Request>(),
+      response: ctx.getResponse<Response>(),
     };
+  }
+
+  // =====================
+  // NORMALIZATION LAYER
+  // =====================
+  private normalizeException(exception: unknown): {
+    status: HttpStatus;
+    code: string;
+    message: string;
+    details?: unknown;
+    stack?: string;
+  } {
+    let status: HttpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
+    let code: string = ERROR_CODES.INTERNAL_SERVER_ERROR;
+    let message = 'An unexpected error occurred';
+    let details: unknown;
+    let stack: string | undefined;
+
+    if (exception instanceof HttpException) {
+      status = exception.getStatus();
+
+      const res: unknown = exception.getResponse();
+
+      if (typeof res === 'string') {
+        message = res;
+      } else if (typeof res === 'object' && res !== null) {
+        const errObj = res as {
+          code?: string;
+          message?: string | string[];
+          details?: unknown;
+        };
+
+        code = errObj.code ?? this.mapStatusToCode(status);
+
+        message = Array.isArray(errObj.message)
+          ? errObj.message.join(', ')
+          : (errObj.message ?? exception.message);
+
+        details = errObj.details;
+      }
+    } else if (exception instanceof Error) {
+      message = exception.message;
+      stack = exception.stack;
+    }
+
+    // attach stack only in dev
+    if (process.env.NODE_ENV !== 'production' && stack) {
+      details = {
+        ...(typeof details === 'object' && details ? details : {}),
+        stack,
+      };
+    }
+
+    return { status, code, message, details, stack };
+  }
+
+  // =====================
+  // LOGGING
+  // =====================
+  private logException(
+    request: Request,
+    status: number,
+    code: string,
+    message: string,
+    exception: unknown,
+    stack?: string,
+    details?: unknown,
+  ) {
+    const logPayload = {
+      path: request.url,
+      method: request.method,
+      status,
+      body: request.body as unknown,
+      details,
+    };
+
+    const logMessage = `[${request.method}] ${request.url} - ${code}: ${message}`;
 
     if (status >= 500) {
       this.logger.error(
-        exception instanceof Error ? exception.stack : exception,
-        logPayload,
+        logMessage,
+        exception instanceof Error ? exception.stack : stack,
+        JSON.stringify(logPayload),
       );
     } else {
-      this.logger.warn(logPayload);
+      this.logger.warn(logMessage, undefined, JSON.stringify(logPayload));
     }
-
-    // Dùng ApiResponseDto.error để có format đồng bộ
-    const errorResponse = ApiResponseDto.error(formattedMessage, status);
-    response.status(status).json({
-      ...errorResponse,
-      path: request.originalUrl,
-    });
   }
 
-  private formatMessage(rawMessage: unknown): string[] {
-    if (typeof rawMessage === 'string') {
-      return [rawMessage];
+  // =====================
+  // STATUS MAP
+  // =====================
+  private mapStatusToCode(status: HttpStatus): string {
+    switch (status) {
+      case HttpStatus.BAD_REQUEST:
+        return ERROR_CODES.VALIDATION_FAILED;
+      case HttpStatus.UNAUTHORIZED:
+        return ERROR_CODES.AUTH_INVALID_TOKEN;
+      case HttpStatus.FORBIDDEN:
+        return ERROR_CODES.AUTH_INSUFFICIENT_PERMISSIONS;
+      case HttpStatus.NOT_FOUND:
+        return ERROR_CODES.RESOURCE_NOT_FOUND;
+      case HttpStatus.CONFLICT:
+        return ERROR_CODES.DUPLICATE_ENTRY;
+      case HttpStatus.TOO_MANY_REQUESTS:
+        return ERROR_CODES.RATE_LIMIT_EXCEEDED;
+      default:
+        return ERROR_CODES.INTERNAL_SERVER_ERROR;
     }
-
-    if (Array.isArray(rawMessage)) {
-      return rawMessage.filter((msg): msg is string => typeof msg === 'string');
-    }
-
-    if (rawMessage && typeof rawMessage === 'object') {
-      const obj = rawMessage as { message?: unknown };
-
-      if (Array.isArray(obj.message)) {
-        return obj.message.filter(
-          (msg): msg is string => typeof msg === 'string',
-        );
-      }
-
-      if (typeof obj.message === 'string') {
-        return [obj.message];
-      }
-    }
-
-    return ['Internal server error'];
   }
 }

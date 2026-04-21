@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DifficultyLevel, CardStatus } from "../types";
+import { DifficultyLevel, CardStatus, SessionMode } from "../types";
 
 /**
  * ==========================================
@@ -206,6 +206,11 @@ export const CreateCardSchema = z.object({
   meanings: z.array(MeaningBaseSchema).min(1),
 });
 
+// API #7b: Add Card from existing word
+export const CreateCardFromWordSchema = z.object({
+  wordId: z.string().min(1, "Word ID is required"),
+});
+
 // API #8: Bulk Import
 export const BulkImportSchema = z.object({
   words: z.array(z.string().min(1)).min(1, "Please provide at least one word").max(30, "Maximum 30 words per import"),
@@ -223,30 +228,30 @@ export const UpdateCardSchema = z.object({
  * ==========================================
  */
 
-// API #18: Start Session
+// API #18: Start Session - Matching với server CreateSessionDto
 export const StartSessionSchema = z.object({
   deckId: z.string().min(1, "Deck ID is required"),
-  mode: z.enum(["all", "hard", "recent", "preview", "default"]).optional(),
+  mode: z.nativeEnum(SessionMode).optional().default(SessionMode.DEFAULT),
+  limit: z.number().min(1).max(100).optional().default(50),
+  page: z.number().min(1).optional().default(1),
 });
 
-// API #19: Sync Session (chỉ yêu cầu cardId và rating)
-export const ReviewResultSchema = z
-  .object({
-    cardId: z.string().min(1),
-    rating: z.number().min(1).max(4),
-    status: z.nativeEnum(CardStatus), // bắt buộc
-    interval: z.number().nonnegative(), // bắt buộc
-    repetitions: z.number().nonnegative(), // bắt buộc
-    easeFactor: z.number().min(1.3).max(3.0), // bắt buộc
-    nextReview: DateTimeSchema, // bắt buộc
-  })
-  .strict();
+// API #19: Sync Session - Matching với server SyncSessionDto
+export const ReviewResultSchema = z.object({
+  cardId: z.string().min(1),
+  rating: z.number().min(1).max(4),
+  status: z.nativeEnum(CardStatus).optional(),
+  interval: z.number().nonnegative().optional(),
+  repetitions: z.number().nonnegative().optional(),
+  easeFactor: z.number().min(1.3).max(3.0).optional(),
+  nextReview: DateTimeSchema.optional(),
+});
 
 export const SyncSessionSchema = z.object({
   sessionId: z.string().min(1),
   deckId: z.string().min(1),
   results: z.array(ReviewResultSchema),
-  minutesSpent: z.number().default(0),
+  minutesSpent: z.number().min(0).max(1440).optional(),
 });
 
 export const ApiResponse = <T extends z.ZodTypeAny>(schema: T) =>
@@ -267,6 +272,7 @@ export const ApiResponse = <T extends z.ZodTypeAny>(schema: T) =>
  */
 export type CreateDeckInput = z.infer<typeof CreateDeckSchema>;
 export type CreateCardInput = z.infer<typeof CreateCardSchema>;
+export type CreateCardFromWordInput = z.infer<typeof CreateCardFromWordSchema>;
 export type BulkImportInput = z.infer<typeof BulkImportSchema>;
 export type UpdateCardInput = z.infer<typeof UpdateCardSchema>;
 export type SyncSessionInput = z.infer<typeof SyncSessionSchema>;

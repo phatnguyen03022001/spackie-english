@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface ForecastProps {
@@ -8,122 +8,110 @@ interface ForecastProps {
 }
 
 export function ReviewForecast({ forecast }: ForecastProps) {
-  // 1. Chuẩn hóa dữ liệu: Lấy 7 ngày tới và định dạng label
-  const data = Object.entries(forecast)
-    .map(([date, count]) => ({
-      rawDate: new Date(date),
-      label: new Date(date).toLocaleDateString("vi-VN", {
-        weekday: "short",
-        day: "numeric",
-      }),
-      count,
-    }))
-    .sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime())
-    .slice(0, 7);
+  const data = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
 
-  const hasData = data.length > 0;
+      // Tạo YYYY-MM-DD chuẩn không phụ thuộc timezone
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+
+      days.push({
+        rawDate: date,
+        label: date.toLocaleDateString("vi-VN", { weekday: "short", day: "numeric" }),
+        count: forecast[dateStr] || 0,
+      });
+    }
+    return days;
+  }, [forecast]);
+  const hasData = data.some((day) => day.count > 0);
 
   return (
     <div className="flex flex-col h-full space-y-6">
-      {/* Header nội bộ của component */}
-      <div className="space-y-1">
-        <h3 className="text-sm font-black tracking-tight text-foreground uppercase">
+      <div className="space-y-1.5">
+        <h3 className="text-sm font-bold tracking-tight text-foreground uppercase">
           Lộ trình <span className="text-primary">7 ngày tới</span>
         </h3>
-        <p className="text-[11px] font-bold text-muted-foreground/40 leading-tight">
+        <p className="text-xs text-muted-foreground leading-relaxed">
           Số lượng thẻ dự kiến sẽ đến hạn ôn tập dựa trên thuật toán Spaced Repetition.
         </p>
       </div>
 
-      <div className="flex-1 min-h-55 w-full mt-2">
+      <div className="flex-1 min-h-[220px] w-full mt-2">
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 10, right: 0, left: -25, bottom: 0 }} barGap={8}>
-              {/* Chỉ giữ lại đường lưới ngang mờ ảo */}
-              <CartesianGrid vertical={false} strokeDasharray="8 8" stroke="currentColor" className="text-border/5" />
-
+            <BarChart data={data} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
+              <CartesianGrid
+                vertical={false}
+                strokeDasharray="4 4"
+                stroke="hsl(var(--border))"
+                className="opacity-50"
+              />
               <XAxis
                 dataKey="label"
                 axisLine={false}
                 tickLine={false}
-                tick={{
-                  fontSize: 10,
-                  fontWeight: 800,
-                  fill: "currentColor",
-                  className: "text-muted-foreground/40 uppercase tracking-tighter",
-                }}
+                tick={{ fontSize: 10, fontWeight: 600, fill: "hsl(var(--muted-foreground))" }}
                 dy={10}
               />
-
               <YAxis
                 allowDecimals={false}
                 axisLine={false}
                 tickLine={false}
-                tick={{
-                  fontSize: 10,
-                  fontWeight: 800,
-                  fill: "currentColor",
-                  className: "text-muted-foreground/30",
-                }}
+                tick={{ fontSize: 10, fontWeight: 600, fill: "hsl(var(--muted-foreground))", opacity: 0.7 }}
               />
-
               <Tooltip
-                cursor={{ fill: "rgba(var(--primary), 0.03)", radius: 12 }}
+                cursor={{ fill: "hsl(var(--primary))", opacity: 0.05 }}
                 contentStyle={{
-                  backgroundColor: "rgba(255, 255, 255, 0.8)",
-                  backdropFilter: "blur(12px)",
-                  borderRadius: "16px",
-                  border: "1px solid rgba(var(--primary), 0.1)",
-                  boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
-                  padding: "12px",
+                  backgroundColor: "hsl(var(--background))",
+                  borderRadius: "var(--radius)",
+                  border: "1px solid hsl(var(--border))",
+                  boxShadow: "var(--shadow-md)",
+                  padding: "8px 12px",
                 }}
-                itemStyle={{
-                  fontSize: "12px",
-                  fontWeight: "900",
-                  color: "var(--primary)",
-                  textTransform: "uppercase",
-                }}
+                itemStyle={{ fontSize: "12px", fontWeight: "700", color: "hsl(var(--primary))" }}
                 labelStyle={{
                   fontSize: "10px",
-                  fontWeight: "700",
-                  color: "rgba(0,0,0,0.4)",
-                  marginBottom: "4px",
+                  fontWeight: "500",
+                  color: "hsl(var(--muted-foreground))",
+                  marginBottom: "2px",
                 }}
               />
-
-              <Bar
-                dataKey="count"
-                radius={[10, 10, 10, 10]} // Bo tròn cả 4 góc cho modern look
-                barSize={24}
-                animationDuration={1500}
-                animationEasing="ease-in-out">
-                {data.map((entry, index) => (
+              <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={28} animationDuration={1000}>
+                {data.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={index === 0 ? "var(--primary)" : "rgba(var(--primary), 0.2)"}
-                    className="transition-all duration-500 hover:opacity-80"
+                    fill={index === 0 ? "hsl(var(--primary))" : "hsla(var(--primary), 0.3)"}
+                    className="transition-colors duration-300 hover:opacity-80"
                   />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-full items-center justify-center border-2 border-dashed border-border/5 rounded-3xl">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-20">Không có dự báo bài học</p>
+          <div className="flex h-full items-center justify-center border-2 border-dashed border-border rounded-xl bg-muted/5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+              Không có thẻ cần ôn trong 7 ngày tới
+            </p>
           </div>
         )}
       </div>
 
-      {/* Footer chú thích nhỏ */}
       {hasData && (
-        <div className="flex items-center gap-4 pt-2 border-t border-border/5">
-          <div className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-primary" />
-            <span className="text-[9px] font-black uppercase text-muted-foreground/60 tracking-wider">Hôm nay</span>
+        <div className="flex items-center gap-4 pt-4 border-t border-border">
+          <div className="flex items-center gap-2">
+            <div className="h-2.5 w-2.5 rounded-sm bg-primary" />
+            <span className="text-[10px] font-bold uppercase text-foreground/70 tracking-tight">Hôm nay</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-primary/20" />
-            <span className="text-[9px] font-black uppercase text-muted-foreground/60 tracking-wider">Sắp tới</span>
+          <div className="flex items-center gap-2">
+            <div className="h-2.5 w-2.5 rounded-sm bg-primary/30" />
+            <span className="text-[10px] font-bold uppercase text-foreground/70 tracking-tight">Sắp tới</span>
           </div>
         </div>
       )}

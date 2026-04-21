@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { Plus, Trash2, MoreHorizontal, Import, Move } from "lucide-react";
-import { useDeckDetails, useDeleteCard, useUpdateCard, useMyDecks } from "../../api/use-management";
+import { useDeckDetails, useDeleteCard, useMyDecks, useMoveCard } from "../../api/use-management";
+import { BulkImportForm } from "./bulk-import-form";
 import { Card } from "../../schemas";
 
 import { Button } from "@/components/ui/button";
@@ -38,16 +39,18 @@ export const CardManager = ({ deckId }: CardManagerProps) => {
   const { data: deck, isLoading, error } = useDeckDetails(deckId);
   const { data: myDecks } = useMyDecks();
   const deleteCard = useDeleteCard();
-  const updateCard = useUpdateCard();
+  const moveCardMutation = useMoveCard();
 
   // --- States ---
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [cardToDelete, setCardToDelete] = useState<Card | null>(null);
   const [moveCard, setMoveCard] = useState<Card | null>(null);
   const [selectedDeckId, setSelectedDeckId] = useState<string>("");
 
   // --- Handlers ---
   const handleAdd = () => setIsFormOpen(true);
+  const handleBulkImport = () => setIsBulkImportOpen(true);
 
   const handleDeleteClick = (card: Card) => setCardToDelete(card);
 
@@ -72,17 +75,16 @@ export const CardManager = ({ deckId }: CardManagerProps) => {
     }
 
     try {
-      await updateCard.mutateAsync({
+      await moveCardMutation.mutateAsync({
         cardId: moveCard.id,
-        deckId, // deck hiện tại để invalidate cache
-        data: {
-          deckId: selectedDeckId, // deck mới
-        },
+        fromDeckId: deckId,
+        toDeckId: selectedDeckId,
       });
 
       setMoveCard(null);
       setSelectedDeckId("");
     } catch (error) {
+      // Error is already handled by the mutation hook
       console.error("Failed to move card:", error);
     }
   };
@@ -113,7 +115,7 @@ export const CardManager = ({ deckId }: CardManagerProps) => {
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold">Danh sách thẻ ({cards.length})</h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="rounded-xl font-bold">
+          <Button variant="outline" size="sm" className="rounded-xl font-bold" onClick={handleBulkImport}>
             <Import className="mr-2 h-4 w-4" /> Nhập file
           </Button>
           <Button size="sm" onClick={handleAdd} className="rounded-xl font-bold">
@@ -226,6 +228,26 @@ export const CardManager = ({ deckId }: CardManagerProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal bulk import */}
+      <Dialog open={isBulkImportOpen} onOpenChange={setIsBulkImportOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-[2rem] border-none shadow-2xl p-8">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black flex items-center gap-2">
+              <Import className="h-6 w-6 text-violet-500" />
+              Nhập từ vựng hàng loạt
+            </DialogTitle>
+          </DialogHeader>
+          <BulkImportForm
+            deckId={deckId}
+            onSuccess={() => {
+              setIsBulkImportOpen(false);
+              // Refresh deck data after successful import
+              // The query will automatically refetch due to invalidation in the mutation
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm delete dialog */}
       <AlertDialog open={!!cardToDelete} onOpenChange={(open) => !open && setCardToDelete(null)}>

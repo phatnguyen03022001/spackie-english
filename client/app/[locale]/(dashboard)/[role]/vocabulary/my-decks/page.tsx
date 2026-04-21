@@ -3,12 +3,13 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
-import { Flame, GraduationCap, MoreVertical, Trash2, PlayCircle, Loader2, Library } from "lucide-react";
-import { toast } from "sonner";
+import { Flame, GraduationCap, MoreVertical, Trash2, PlayCircle, Loader2, Library, Sparkles } from "lucide-react";
+import { toast } from "sonner"; // Sử dụng Sonner theo mục 4.1
 
 import { useEnrolledDecks, useUnenrollDeck } from "@/features/vocabulary/api";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"; // Sử dụng đúng cấu trúc Card mục 4.1
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,29 +52,32 @@ export default function MyDecksPage() {
     });
   };
 
+  // --- 1. Loading State (Tuân thủ mục 4.1 & 10) ---
   if (isLoading)
     return (
-      <div className="pt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="container mx-auto pt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
         {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-80 rounded-3xl bg-muted/20 border border-border/10" />
+          <Skeleton key={i} className="h-80 rounded-3xl bg-muted/20" />
         ))}
       </div>
     );
 
+  // --- 2. Empty State (Tuân thủ mục 1 & 6.2) ---
   if (isError || !decks || decks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-40 text-center animate-in fade-in duration-700">
+      <div className="flex flex-col items-center justify-center min-h-[70vh] text-center animate-in fade-in duration-500">
         <div className="relative mb-8">
           <div className="absolute inset-0 bg-primary/10 blur-[60px] rounded-full" />
           <Library size={80} strokeWidth={0.5} className="relative text-muted-foreground/20" />
         </div>
-        <h2 className="text-4xl font-black tracking-tighter mb-3">Thư viện trống</h2>
-        <p className="text-muted-foreground font-medium max-w-xs mb-10 opacity-80 text-lg">
+        <h2 className="text-3xl font-black tracking-tight mb-3">Thư viện trống</h2>
+        <p className="text-muted-foreground max-w-xs mb-10 opacity-80">
           Bắt đầu hành trình bằng cách khám phá những bộ thẻ từ vựng cộng đồng.
         </p>
         <Button
           asChild
-          className="h-12 px-8 rounded-xl font-black text-sm uppercase tracking-widest bg-primary shadow-xl shadow-primary/20 cursor-pointer">
+          size="lg"
+          className="rounded-xl font-bold uppercase tracking-widest bg-primary shadow-xl shadow-primary/20">
           <Link href={`${baseUrl}/decks`}>Khám phá ngay</Link>
         </Button>
       </div>
@@ -81,20 +85,25 @@ export default function MyDecksPage() {
   }
 
   return (
-    <div className="space-y-8 pt-4 pb-20 px-1">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="container mx-auto space-y-10 py-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* --- Header Section (Tuân thủ mục 6.1) --- */}
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
+          <div className="flex items-center gap-2 text-primary font-bold text-[10px] uppercase tracking-[0.2em] opacity-70">
+            <Sparkles size={12} fill="currentColor" />
+            <span>Learning Journey</span>
+          </div>
           <h1 className="text-3xl font-black tracking-tight md:text-4xl leading-none">
-            Bộ thẻ{" "}
-            <span className="bg-linear-to-r from-primary to-blue-500 bg-clip-text text-transparent">của tôi</span>
+            Bộ thẻ <span className="text-primary">của tôi</span>
           </h1>
           <p className="text-muted-foreground text-sm font-medium opacity-80">
-            Tiếp tục hành trình chinh phục {decks.length} chủ đề từ vựng.
+            Bạn đang tham gia {decks.length} lộ trình học tập tích cực.
           </p>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* --- Grid Layout (Tuân thủ mục 6.3) --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {decks.map((deck) => {
           const total = deck.cardCount || deck._count?.cards || 0;
           const mastered = deck.masteredCount || 0;
@@ -103,22 +112,23 @@ export default function MyDecksPage() {
           const hasDueCards = due > 0;
 
           return (
-            <div
+            <Card
               key={deck.id}
-              className="group relative flex flex-col glass-panel p-5! rounded-3xl! border-primary/10 shadow-xl shadow-primary/5 hover:shadow-primary/10 hover:border-primary/30 transition-all duration-300">
+              className="group glass-panel relative flex flex-col border-primary/10 shadow-xl hover:border-primary/30 transition-all duration-300 rounded-[2rem] overflow-hidden">
+              {/* Dropdown Menu (Tuân thủ mục 4.1) */}
               <div className="absolute top-4 right-4 z-10">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-all cursor-pointer">
+                      className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                       <MoreVertical size={14} className="text-muted-foreground" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="glass rounded-xl border-primary/10 p-1">
+                  <DropdownMenuContent align="end" className="glass rounded-xl border-primary/10">
                     <DropdownMenuItem
-                      className="text-destructive font-bold text-xs cursor-pointer focus:bg-destructive/10 focus:text-destructive"
+                      className="text-destructive font-bold focus:bg-destructive/10 focus:text-destructive"
                       onClick={() => setDeleteId(deck.id)}>
                       <Trash2 size={14} className="mr-2" /> Hủy đăng ký
                     </DropdownMenuItem>
@@ -126,75 +136,81 @@ export default function MyDecksPage() {
                 </DropdownMenu>
               </div>
 
-              <div className="flex-1 space-y-5">
-                <div>
-                  <h3 className="text-lg font-black tracking-tight mb-1 transition-colors group-hover:text-primary leading-tight">
+              <CardHeader className="p-6 pb-4">
+                <div className="space-y-3">
+                  <h3 className="text-xl font-black tracking-tight group-hover:text-primary transition-colors leading-tight">
                     {deck.title}
                   </h3>
                   <Badge
-                    variant="outline"
-                    className="rounded-full border-primary/10 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 py-0 px-2 bg-secondary/10">
+                    variant="secondary"
+                    className="rounded-full text-[9px] font-black uppercase tracking-widest px-2 bg-secondary/30">
                     {total} Vocabs
                   </Badge>
                 </div>
+              </CardHeader>
 
+              <CardContent className="p-6 pt-0 space-y-6">
+                {/* Progress Section (Tuân thủ mục 2.1 & 4.1) */}
                 <div className="space-y-2">
-                  <div className="flex justify-between text-[11px] font-black uppercase tracking-wider">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-wider">
                     <span className="flex items-center gap-1.5 text-primary">
                       <GraduationCap size={14} /> {masteryPercentage}% Mastered
                     </span>
-                    <span className="text-muted-foreground/50">
+                    <span className="text-muted-foreground/40">
                       {mastered}/{total}
                     </span>
                   </div>
-                  <Progress value={masteryPercentage} className="h-1.5 bg-secondary/40 border-none" />
+                  <Progress value={masteryPercentage} className="h-1.5 bg-muted" />
                 </div>
 
-                <div className="grid grid-cols-2 pt-4 border-t border-border/10">
-                  <div className="space-y-0.5">
+                {/* Stats Grid (Tuân thủ mục 6.2) */}
+                <div className="grid grid-cols-2 py-4 border-t border-border/50">
+                  <div className="space-y-1">
                     <p
-                      className={`text-2xl font-black tabular-nums leading-none ${hasDueCards ? "text-orange-500" : "text-muted-foreground/20"}`}>
+                      className={`text-2xl font-black tabular-nums ${hasDueCards ? "text-orange-500" : "text-muted-foreground/20"}`}>
                       {due}
                     </p>
                     <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest">
                       Cần ôn tập
                     </p>
                   </div>
-                  <div className="space-y-0.5 border-l border-border/10 pl-5">
-                    <p className="text-2xl font-black text-primary tabular-nums leading-none">{mastered}</p>
+                  <div className="space-y-1 border-l border-border pl-6">
+                    <p className="text-2xl font-black text-primary tabular-nums">{mastered}</p>
                     <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest">Đã thuộc</p>
                   </div>
                 </div>
-              </div>
+              </CardContent>
 
-              <Button
-                onClick={() => setSelectedDeck({ id: deck.id, name: deck.title })}
-                className={`
-                  mt-6 h-11 w-full rounded-xl font-black text-[11px] uppercase tracking-[0.15em] 
-                  transition-all duration-300 active:scale-[0.97] cursor-pointer
-                  ${
-                    hasDueCards
-                      ? "bg-primary text-white shadow-[0_8px_20px_-6px_rgba(var(--primary),0.4)] hover:shadow-[0_12px_25px_-5px_rgba(var(--primary),0.5)] hover:-translate-y-0.5"
-                      : "glass border-primary/10 text-foreground/80 hover:bg-primary/5 hover:text-primary shadow-none"
-                  }
-                `}>
-                {hasDueCards ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <Flame size={14} className="fill-orange-400 text-orange-400 animate-pulse" />
-                    <span>Ôn tập ngay</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-2">
-                    <PlayCircle size={14} className="transition-transform group-hover:scale-110" />
-                    <span className="text-whtie">Tiếp tục học</span>
-                  </div>
-                )}
-              </Button>
-            </div>
+              <CardFooter className="p-6 pt-0">
+                <Button
+                  onClick={() => setSelectedDeck({ id: deck.id, name: deck.title })}
+                  className={`
+                    w-full h-12 rounded-xl font-black text-[11px] uppercase tracking-[0.2em] transition-all
+                    ${
+                      hasDueCards
+                        ? "bg-primary shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5"
+                        : "glass border-primary/10 text-foreground/70 hover:bg-primary/5 hover:text-primary"
+                    }
+                  `}>
+                  {hasDueCards ? (
+                    <div className="flex items-center gap-2">
+                      <Flame size={14} className="fill-orange-400 text-orange-400 animate-pulse" />
+                      <span>Ôn tập ngay</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <PlayCircle size={14} />
+                      <span>Tiếp tục học</span>
+                    </div>
+                  )}
+                </Button>
+              </CardFooter>
+            </Card>
           );
         })}
       </div>
 
+      {/* --- Modals (Tuân thủ mục 4.1 Dialog) --- */}
       <ExtraStudyModal
         isOpen={!!selectedDeck}
         onClose={() => setSelectedDeck(null)}
@@ -203,21 +219,19 @@ export default function MyDecksPage() {
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
-        <AlertDialogContent className="rounded-4xl glass border-primary/10 p-8">
+        <AlertDialogContent className="rounded-3xl glass border-primary/10">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-black tracking-tight">Hủy đăng ký bộ thẻ?</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm font-medium text-muted-foreground">
-              Tiến trình ghi nhớ (SRS) của bạn cho bộ thẻ này sẽ bị xóa vĩnh viễn. Bạn chắc chắn chứ?
+            <AlertDialogTitle className="text-xl font-black">Hủy đăng ký?</AlertDialogTitle>
+            <AlertDialogDescription className="font-medium">
+              Tiến trình SRS của bạn cho bộ thẻ này sẽ bị xóa vĩnh viễn.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="mt-6 gap-3">
-            <AlertDialogCancel className="h-11 rounded-xl font-bold bg-secondary/50 border-none cursor-pointer">
-              Để sau
-            </AlertDialogCancel>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel className="rounded-xl font-bold bg-muted border-none">Hủy</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleUnenroll}
               disabled={isUnenrolling}
-              className="h-11 rounded-xl font-bold bg-destructive text-white hover:bg-destructive/90 cursor-pointer shadow-lg shadow-destructive/20">
+              className="rounded-xl font-bold bg-destructive text-white shadow-lg shadow-destructive/20">
               {isUnenrolling ? <Loader2 className="animate-spin" /> : "Xác nhận xóa"}
             </AlertDialogAction>
           </AlertDialogFooter>

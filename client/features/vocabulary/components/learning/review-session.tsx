@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Loader2, Inbox } from "lucide-react";
+import { Loader2, Inbox, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 // API & Types
@@ -9,7 +9,7 @@ import { useStartSession, useSyncSession, useCancelSession } from "../../api/use
 import { calculateSM2 } from "../../utils/srs-logic";
 import { ReviewResultSchema } from "../../schemas";
 import { Card } from "../../schemas";
-import { CardStatus } from "../../types";
+import { CardStatus, SessionMode } from "../../types";
 import type { z } from "zod";
 
 type ReviewResult = z.infer<typeof ReviewResultSchema>;
@@ -21,13 +21,12 @@ import { ReviewActions } from "./review-actions";
 import { SessionComplete } from "./session-complete";
 import { Button } from "@/components/ui/button";
 
-// Sửa lại interface để khớp với page.tsx
 interface ReviewSessionProps {
   deckId: string;
-  studyMode?: "all" | "hard" | "recent" | "preview" | "default";
+  studyMode?: SessionMode;
 }
 
-export const ReviewSession = ({ deckId, studyMode }: ReviewSessionProps) => {
+export const ReviewSession = ({ deckId, studyMode = SessionMode.DEFAULT }: ReviewSessionProps) => {
   const router = useRouter();
 
   // --- API Hooks ---
@@ -37,24 +36,34 @@ export const ReviewSession = ({ deckId, studyMode }: ReviewSessionProps) => {
 
   // --- States ---
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [originalCards, setOriginalCards] = useState<Card[]>([]);
   const [sessionCards, setSessionCards] = useState<Card[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
-  const [results, setResults] = useState<ReviewResult[]>([]); // Sử dụng ReviewResult từ schema
+  const [results, setResults] = useState<ReviewResult[]>([]);
+  const [cardsToRepeat, setCardsToRepeat] = useState<Card[]>([]);
+  const [reviewedOriginalCards, setReviewedOriginalCards] = useState<Set<string>>(new Set());
+  const [isCurrentAnswerCorrect, setIsCurrentAnswerCorrect] = useState(false);
 
-  // Refs quản lý session
+  // Refs
   const startTimeRef = useRef<Date>(new Date());
   const isFinishedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
+  const cardsToRepeatRef = useRef<Card[]>([]);
 
   const currentCard = sessionCards[currentIndex];
-  const totalCards = sessionCards.length;
+  const totalSessionCards = sessionCards.length;
 
-  /**
-   * Cải thiện hàm determineStatus:
-   * logic này nên dựa trên ngưỡng của thuật toán SM-2 bạn đã cài đặt
-   */
+  const shuffleCards = useCallback((cards: Card[]): Card[] => {
+    const shuffled = [...cards];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }, []);
+
   const determineStatus = (rating: number, interval: number, repetitions: number): CardStatus => {
     if (rating < 3) return CardStatus.LEARNING;
     if (interval >= 21 || repetitions >= 8) return CardStatus.MASTERED;
@@ -62,45 +71,42 @@ export const ReviewSession = ({ deckId, studyMode }: ReviewSessionProps) => {
     return CardStatus.LEARNING;
   };
 
-  // --- 1. Khởi tạo Session ---
   useEffect(() => {
     let isMounted = true;
-
     startSession(
-      { deckId, mode: studyMode }, // Mode được truyền xuống từ URL searchParams
+      { deckId, mode: studyMode, limit: 50, page: 1 },
       {
         onSuccess: (data) => {
           if (!isMounted) return;
-          // Reset lại state khi session được khởi tạo thành công
           setIsFinished(false);
           isFinishedRef.current = false;
           setCurrentIndex(0);
           setSessionId(data.sessionId);
           sessionIdRef.current = data.sessionId;
-          setSessionCards(data.cards);
+          const shuffledCards = shuffleCards(data.cards);
+          setOriginalCards(shuffledCards);
+          setSessionCards(shuffledCards);
+          setCardsToRepeat([]);
+          setReviewedOriginalCards(new Set());
+          setResults([]);
           startTimeRef.current = new Date();
         },
       },
     );
-
     return () => {
       isMounted = false;
-      // Nếu user thoát trang giữa chừng (unmount), báo server cancel session
       if (sessionIdRef.current && !isFinishedRef.current) {
         cancelSession(sessionIdRef.current);
       }
     };
-  }, [deckId, studyMode, startSession, cancelSession]);
+  }, [deckId, studyMode, startSession, cancelSession, shuffleCards]);
 
-  // --- 2. Kết thúc Session ---
   const onFinish = useCallback(
     (finalResults: ReviewResult[]) => {
       if (!sessionIdRef.current) return;
       isFinishedRef.current = true;
-
       const durationMs = Date.now() - startTimeRef.current.getTime();
       const minutesSpent = Math.max(1, Math.round(durationMs / 60000));
-
       syncSession(
         {
           sessionId: sessionIdRef.current,
@@ -108,19 +114,15 @@ export const ReviewSession = ({ deckId, studyMode }: ReviewSessionProps) => {
           results: finalResults,
           minutesSpent,
         },
-        {
-          onSuccess: () => setIsFinished(true),
-        },
+        { onSuccess: () => setIsFinished(true) },
       );
     },
     [deckId, syncSession],
   );
 
-  // --- 3. Xử lý đánh giá thẻ ---
   const handleRate = useCallback(
     (rating: number) => {
-      if (!currentCard || !sessionId) return;
-
+      if (!currentCard || !sessionId || isFinished) return;
       const sm2 = calculateSM2(
         {
           interval: currentCard.interval,
@@ -129,7 +131,6 @@ export const ReviewSession = ({ deckId, studyMode }: ReviewSessionProps) => {
         },
         rating,
       );
-
       const newResult = {
         cardId: currentCard.id,
         rating,
@@ -139,48 +140,95 @@ export const ReviewSession = ({ deckId, studyMode }: ReviewSessionProps) => {
         status: determineStatus(rating, sm2.interval, sm2.repetitions),
         nextReview: sm2.nextReview,
       };
-
-      const updatedResults = [...results, newResult];
-      setResults(updatedResults);
-
-      if (currentIndex < totalCards - 1) {
+      setResults((prev) => [...prev, newResult]);
+      if (originalCards.some((card) => card.id === currentCard.id)) {
+        setReviewedOriginalCards((prev) => new Set([...prev, currentCard.id]));
+      }
+      if (rating < 3) {
+        setCardsToRepeat((prev) => {
+          const newRepeatCards = [...prev, currentCard];
+          cardsToRepeatRef.current = newRepeatCards;
+          return newRepeatCards;
+        });
+      }
+      const isLastCardInSession = currentIndex >= totalSessionCards - 1;
+      if (!isLastCardInSession) {
         setIsFlipped(false);
         setCurrentIndex((prev) => prev + 1);
       } else {
-        onFinish(updatedResults);
+        setTimeout(() => {
+          const currentRepeatCards = cardsToRepeatRef.current;
+          if (currentRepeatCards.length > 0) {
+            const shuffledRepeatCards = shuffleCards(currentRepeatCards);
+            setSessionCards(shuffledRepeatCards);
+            setCardsToRepeat([]);
+            cardsToRepeatRef.current = [];
+            setCurrentIndex(0);
+            setIsFlipped(false);
+          }
+          const hasReviewedAllOriginal = reviewedOriginalCards.size >= originalCards.length;
+
+          if (hasReviewedAllOriginal) {
+            onFinish([...results, newResult]);
+          } else {
+            onFinish([...results, newResult]);
+          }
+        }, 100);
       }
     },
-    [currentCard, sessionId, results, currentIndex, totalCards, onFinish],
+    [
+      currentCard,
+      sessionId,
+      isFinished,
+      currentIndex,
+      totalSessionCards,
+      originalCards,
+      reviewedOriginalCards,
+      results,
+      shuffleCards,
+      onFinish,
+    ],
   );
 
-  // --- View States ---
+  const progressCurrent =
+    reviewedOriginalCards.size +
+    (currentCard &&
+    originalCards.some((card) => card.id === currentCard.id) &&
+    !reviewedOriginalCards.has(currentCard.id)
+      ? 1
+      : 0);
+  const progressTotal = originalCards.length;
 
   if (isStarting) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-sm font-medium text-muted-foreground animate-pulse">
-          Đang chuẩn bị lộ trình {studyMode ? "ôn tập thêm" : "học tập"}...
-        </p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
+        <div className="glass-panel w-full max-w-sm mx-auto flex flex-col items-center gap-4 p-8">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-sm font-medium text-muted-foreground animate-pulse text-center">
+            Đang chuẩn bị lộ trình {studyMode !== SessionMode.DEFAULT ? "ôn tập thêm" : "học tập"}...
+          </p>
+        </div>
       </div>
     );
   }
 
-  if (isStarted && sessionCards.length === 0) {
+  if (isStarted && originalCards.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4 px-6 animate-in fade-in duration-500">
-        <div className="bg-muted p-6 rounded-full">
-          <Inbox className="w-12 h-12 text-muted-foreground/50" />
+      <div className="flex items-center justify-center min-h-[60vh] px-4">
+        <div className="glass-panel max-w-md w-full text-center space-y-4 p-8">
+          <div className="mx-auto w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center">
+            <Inbox className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-xl font-bold">Không có thẻ nào!</h3>
+          <p className="text-muted-foreground text-sm">
+            {studyMode === SessionMode.HARD
+              ? "Tuyệt vời, bạn không có từ nào bị đánh giá là 'khó' trong bộ này."
+              : "Bạn đã hoàn thành hết các thẻ cần học."}
+          </p>
+          <Button onClick={() => router.back()} variant="outline" className="mt-4 w-full">
+            Quay lại Dashboard
+          </Button>
         </div>
-        <h3 className="text-xl font-bold">Không có thẻ nào!</h3>
-        <p className="text-muted-foreground max-w-xs mx-auto">
-          {studyMode === "hard"
-            ? "Tuyệt vời, bạn không có từ nào bị đánh giá là 'khó' trong bộ này."
-            : "Bạn đã hoàn thành hết các thẻ cần học."}
-        </p>
-        <Button onClick={() => router.back()} variant="outline">
-          Quay lại
-        </Button>
       </div>
     );
   }
@@ -189,33 +237,60 @@ export const ReviewSession = ({ deckId, studyMode }: ReviewSessionProps) => {
     return <SessionComplete results={results} deckId={deckId} />;
   }
 
-  return (
-    <div className="max-w-2xl mx-auto w-full px-4 py-6 space-y-8">
-      <ReviewProgress current={currentIndex + 1} total={totalCards} isSyncing={isSyncing} />
+  // ... (giữ nguyên các phần import và logic bên trên)
 
-      <div className="relative min-h-96 flex items-center justify-center">
+  return (
+    <div className="max-w-2xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
+      {/* Header: Đã được cấu trúc lại để Badge nằm dưới Progress */}
+      <div className="flex flex-col gap-4">
+        {/* Thanh Progress chiếm toàn bộ chiều ngang */}
+        <ReviewProgress current={progressCurrent} total={progressTotal} isSyncing={isSyncing} />
+
+        {/* Thẻ cần ôn lại: Bây giờ nằm ở hàng riêng bên dưới, căn giữa hoặc căn trái tùy bạn */}
+        {cardsToRepeat.length > 0 && (
+          <div className="flex justify-center sm:justify-start animate-in fade-in slide-in-from-top-2 duration-500">
+            <div className="glass dark:glass-dark flex items-center gap-2.5 text-xs sm:text-sm font-semibold px-4 py-2 rounded-xl text-foreground border-primary/20 shadow-sm">
+              <div className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              </div>
+              <span>
+                Bạn có <span className="text-primary font-bold">{cardsToRepeat.length}</span> từ cần lặp lại trong lượt
+                này
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Card Area */}
+      <div className="relative min-h-112.5 sm:min-h-125 flex items-center justify-center">
         {isSyncing ? (
-          <div className="flex flex-col items-center gap-3">
+          <div className="glass-panel w-full max-w-sm mx-auto flex flex-col items-center gap-4 p-8 text-center animate-in fade-in zoom-in">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-sm font-semibold">Đang lưu kết quả vào bộ não của bạn...</p>
+            <p className="text-sm font-semibold">Đang đồng bộ nơ-ron thần kinh...</p>
+            <Zap size={16} className="text-muted-foreground animate-pulse" />
           </div>
         ) : currentCard && currentCard.word ? (
           <ReviewCard
-            key={currentCard.id}
+            key={`${currentCard.id}-${currentIndex}`}
             card={currentCard as Card & { word: NonNullable<typeof currentCard.word> }}
             isFlipped={isFlipped}
             onFlip={() => setIsFlipped(true)}
+            onCorrectnessChange={(correct) => setIsCurrentAnswerCorrect(correct)}
           />
         ) : null}
       </div>
 
-      <div className="h-24">
+      {/* Actions */}
+      <div className="mt-2 sm:mt-4">
         {!isSyncing && (
           <ReviewActions
             isFlipped={isFlipped}
             isSyncing={isSyncing}
             onRate={handleRate}
             onFlip={() => setIsFlipped(true)}
+            isAnswerCorrect={isCurrentAnswerCorrect}
           />
         )}
       </div>

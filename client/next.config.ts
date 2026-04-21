@@ -1,13 +1,24 @@
 // next.config.ts
+import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
-const withNextIntl = createNextIntlPlugin(
-  "./lib/i18n/request.ts", // Đường dẫn đến file request config của bạn
-);
+const withNextIntl = createNextIntlPlugin("./lib/i18n/request.ts");
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  // Các config khác của bạn (nếu có)
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "scontent.fsgn5-5.fna.fbcdn.net",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.fbcdn.net",
+        pathname: "/**",
+      },
+    ],
+  },
 };
 
 export default withNextIntl(nextConfig);

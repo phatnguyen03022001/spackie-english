@@ -3,181 +3,170 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* =========================================================
+   THEME TOKENS
+========================================================= */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  
+
   --font-sans: var(--font-google-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
-  
+
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  
+
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  
+
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  
+
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  
+
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  
+
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  
+
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
-  
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
 }
+
+/* =========================================================
+   LIGHT — UNIFIED SCALE
+========================================================= */
 
 :root {
-  --radius: 0.75rem; /* Tăng radius một chút để UI mềm mại, hiện đại hơn */
-  
-  /* --- LIGHT MODE --- */
-  /* Tone nền Slate sáng, có một chút sắc xanh nhẹ (Hue 260) để đồng bộ */
-  --background: oklch(0.99 0.002 260);
-  --foreground: oklch(0.15 0.01 260); /* Xám rất đậm, không dùng đen tuyền để dịu mắt */
-  
-  /* Card & Popover - Trắng tinh khiết để nổi bật trên nền background */
+  --radius: 0.6rem;
+
+  /* ---------- BASE ---------- */
+  --background: oklch(0.985 0.003 255);
+  --foreground: oklch(0.18 0.01 255);
+
+  /* ---------- SURFACE SCALE ---------- */
+  /* step ≈ 0.03 L */
+
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.01 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.01 260);
-  
-  /* Primary - Electric Indigo (Xanh tím) - Sang trọng, tin cậy, độ tương phản hoàn hảo */
-  --primary: oklch(0.55 0.2 260); 
-  --primary-foreground: oklch(0.99 0.01 260);
-  
-  /* Secondary - Xám nhạt, dùng cho các nút phụ */
-  --secondary: oklch(0.96 0.01 260);
-  --secondary-foreground: oklch(0.25 0.02 260);
-  
-  /* Muted - Dành cho các thành phần vô hiệu hóa hoặc background phụ */
-  --muted: oklch(0.96 0.01 260);
-  --muted-foreground: oklch(0.5 0.02 260);
-  
-  /* Accent - Dùng khi hover (ví dụ: dropdown menu items) */
-  --accent: oklch(0.94 0.02 260);
-  --accent-foreground: oklch(0.2 0.02 260);
-  
-  /* Destructive - Đỏ Ruby đậm vừa, không quá chói */
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  
-  /* Utilities */
-  --border: oklch(0.9 0.015 260);
-  --input: oklch(0.9 0.015 260);
-  --ring: oklch(0.55 0.2 260);
-  
-  /* Sidebar */
-  --sidebar: oklch(0.98 0.005 260);
-  --sidebar-foreground: oklch(0.2 0.02 260);
-  --sidebar-primary: oklch(0.55 0.2 260);
-  --sidebar-primary-foreground: oklch(0.99 0.01 260);
-  --sidebar-accent: oklch(0.94 0.02 260);
-  --sidebar-accent-foreground: oklch(0.2 0.02 260);
-  --sidebar-border: oklch(0.9 0.015 260);
-  --sidebar-ring: oklch(0.55 0.2 260);
+  --card-foreground: var(--foreground);
+
+  --secondary: oklch(0.965 0.004 255);
+  --secondary-foreground: oklch(0.30 0.01 255);
+
+  --muted: oklch(0.94 0.004 255);
+  --muted-foreground: oklch(0.48 0.012 255);
+
+  --accent: oklch(0.91 0.006 255);
+  --accent-foreground: oklch(0.24 0.01 255);
+
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+
+  /* ---------- BRAND ---------- */
+
+  --primary: oklch(0.58 0.16 255);
+  --primary-foreground: oklch(0.99 0.002 255);
+
+  /* ---------- SEMANTIC ---------- */
+
+  --destructive: oklch(0.60 0.20 25);
+  --destructive-foreground: white;
+
+  --success: oklch(0.62 0.14 150);
+  --success-foreground: white;
+
+  --warning: oklch(0.76 0.13 85);
+  --warning-foreground: oklch(0.20 0.01 85);
+
+  /* ---------- EDGES ---------- */
+
+  --border: oklch(0.88 0.006 255);
+  --input: var(--border);
+  --ring: var(--primary);
+
+  /* ---------- CHARTS ---------- */
+
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.64 0.14 200);
+  --chart-3: oklch(0.62 0.16 300);
+  --chart-4: oklch(0.72 0.12 85);
+  --chart-5: oklch(0.70 0.14 35);
 }
+
+/* =========================================================
+   DARK — SAME SCALE (INVERTED)
+========================================================= */
 
 .dark {
-  /* --- DARK MODE --- */
-  /* Nền tối sâu (Deep Slate), giúp thiết kế có chiều sâu hơn là màu đen kịt */
-  --background: oklch(0.14 0.01 260);
-  --foreground: oklch(0.98 0.005 260);
-  
-  /* Card nổi bật nhẹ so với background */
-  --card: oklch(0.18 0.015 260);
-  --card-foreground: oklch(0.98 0.005 260);
-  --popover: oklch(0.18 0.015 260);
-  --popover-foreground: oklch(0.98 0.005 260);
-  
-  /* Primary - Sáng hơn ở Dark Mode để nổi bật, chữ chuyển sang tối để đảm bảo Contrast Ratio */
-  --primary: oklch(0.65 0.2 260);
-  --primary-foreground: oklch(0.1 0.01 260);
-  
-  /* Secondary & Muted */
-  --secondary: oklch(0.25 0.02 260);
-  --secondary-foreground: oklch(0.98 0.005 260);
-  
-  --muted: oklch(0.2 0.015 260);
-  --muted-foreground: oklch(0.7 0.015 260);
-  
-  /* Accent */
-  --accent: oklch(0.22 0.02 260);
-  --accent-foreground: oklch(0.98 0.005 260);
-  
-  /* Destructive */
-  --destructive: oklch(0.45 0.2 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  
-  /* Utilities */
-  --border: oklch(0.25 0.02 260);
-  --input: oklch(0.25 0.02 260);
-  --ring: oklch(0.65 0.2 260);
-  
-  /* Sidebar */
-  --sidebar: oklch(0.16 0.015 260);
-  --sidebar-foreground: oklch(0.98 0.005 260);
-  --sidebar-primary: oklch(0.65 0.2 260);
-  --sidebar-primary-foreground: oklch(0.1 0.01 260);
-  --sidebar-accent: oklch(0.22 0.02 260);
-  --sidebar-accent-foreground: oklch(0.98 0.005 260);
-  --sidebar-border: oklch(0.25 0.02 260);
-  --sidebar-ring: oklch(0.65 0.2 260);
+  /* ---------- BASE ---------- */
+
+  --background: oklch(0.12 0.008 255);
+  --foreground: oklch(0.985 0.002 255);
+
+  /* ---------- SURFACE SCALE ---------- */
+  /* identical spacing as light */
+
+  --card: oklch(0.27 0.016 255);
+  --card-foreground: var(--foreground);
+
+  --secondary: oklch(0.31 0.015 255);
+  --secondary-foreground: var(--foreground);
+
+  --muted: oklch(0.36 0.015 255);
+  --muted-foreground: oklch(0.82 0.012 255);
+
+  --accent: oklch(0.41 0.018 255);
+  --accent-foreground: var(--foreground);
+
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+
+  /* ---------- BRAND ---------- */
+
+  --primary: oklch(0.72 0.16 255);
+  --primary-foreground: oklch(0.11 0.01 255);
+
+  /* ---------- SEMANTIC ---------- */
+
+  --destructive: oklch(0.70 0.20 25);
+  --destructive-foreground: oklch(0.13 0.01 25);
+
+  --success: oklch(0.72 0.14 150);
+  --success-foreground: oklch(0.13 0.01 150);
+
+  --warning: oklch(0.82 0.12 85);
+  --warning-foreground: oklch(0.13 0.01 85);
+
+  /* ---------- EDGES ---------- */
+
+  --border: oklch(0.46 0.014 255);
+  --input: var(--border);
+  --ring: var(--primary);
+
+  /* ---------- CHARTS ---------- */
+
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.74 0.13 200);
+  --chart-3: oklch(0.76 0.14 300);
+  --chart-4: oklch(0.80 0.11 85);
+  --chart-5: oklch(0.78 0.12 35);
 }
 
-/* Glass utilities - Tinh chỉnh lại độ trong suốt và thêm shadow mờ để tách lớp (layering) tốt hơn */
-@utility glass {
-  background-color: color-mix(in oklch, var(--background) 70%, transparent);
-  backdrop-filter: blur(16px) saturate(120%);
-  border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
-  color: var(--foreground);
-}
-
-@utility glass-dark {
-  background-color: color-mix(in oklch, var(--background) 75%, transparent);
-  backdrop-filter: blur(16px) saturate(120%);
-  border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
-  color: var(--foreground);
-}
-
-@utility glass-panel {
-  @apply glass dark:glass-dark rounded-xl p-4;
-}
+/* =========================================================
+   BASE
+========================================================= */
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    /* Tối ưu hóa performance animation, không animate toàn bộ * nếu không cần thiết, 
-       nhưng ở quy mô nhỏ thì vẫn ổn */
-    transition: background-color 0.2s ease-out, border-color 0.2s ease-out, color 0.2s ease-out;
   }
+
   body {
-    @apply bg-background text-foreground antialiased; /* Thêm antialiased để font chữ sắc nét hơn */
+    @apply bg-background text-foreground antialiased
+      selection:bg-primary/20 selection:text-primary;
   }
 }

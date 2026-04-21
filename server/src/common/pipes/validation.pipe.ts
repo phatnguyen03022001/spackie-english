@@ -1,13 +1,40 @@
+// src/common/pipes/validation.pipe.ts
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import type { ValidationError } from 'class-validator';
+import { ERROR_CODES } from '../constants/error-codes.const';
 
-function flattenValidationErrors(errors: ValidationError[]): string[] {
-  return errors.flatMap((error) => {
-    if (error.children && error.children.length > 0) {
-      return flattenValidationErrors(error.children);
+interface FormattedValidationError {
+  code: string;
+  message: string;
+  details: Record<string, string[]>;
+}
+
+/**
+ * Format validation errors into structured object with field-specific details.
+ * Follows error code convention: DOMAIN_ACTION_REASON (VALIDATION_ERROR)
+ */
+function formatValidationErrors(
+  errors: ValidationError[],
+): FormattedValidationError {
+  const details: Record<string, string[]> = {};
+
+  const flatten = (err: ValidationError, parent?: string) => {
+    const propertyPath = parent ? `${parent}.${err.property}` : err.property;
+    if (err.constraints) {
+      details[propertyPath] = Object.values(err.constraints);
     }
-    return error.constraints ? Object.values(error.constraints) : [];
-  });
+    if (err.children?.length) {
+      err.children.forEach((child) => flatten(child, propertyPath));
+    }
+  };
+
+  errors.forEach((err) => flatten(err));
+
+  return {
+    code: ERROR_CODES.VALIDATION_ERROR,
+    message: 'Validation failed',
+    details,
+  };
 }
 
 export const GlobalValidationPipe = new ValidationPipe({
@@ -17,8 +44,12 @@ export const GlobalValidationPipe = new ValidationPipe({
   transformOptions: {
     enableImplicitConversion: true,
   },
-  exceptionFactory: (errors) => {
-    const messages = flattenValidationErrors(errors);
-    return new BadRequestException(messages);
+  exceptionFactory: (errors: ValidationError[]) => {
+    const { code, message, details } = formatValidationErrors(errors);
+    return new BadRequestException({
+      code,
+      message,
+      details,
+    });
   },
 });

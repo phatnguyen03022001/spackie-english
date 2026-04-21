@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Timer, Zap, Loader2, Target } from "lucide-react";
+import { Timer, Zap, Loader2, Target, TrendingUp } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
@@ -14,47 +14,36 @@ interface ReviewProgressProps {
 export const ReviewProgress = ({ current, total, isSyncing = false }: ReviewProgressProps) => {
   const [seconds, setSeconds] = useState(0);
 
-  // 1. Logic Timer: Pause khi isSyncing hoặc khi đã xong (current > total)
   useEffect(() => {
-    // Nếu đang sync hoặc đã làm xong card cuối cùng thì không chạy timer
     if (isSyncing || current > total) return;
-
-    const interval = setInterval(() => {
-      setSeconds((prev) => prev + 1);
-    }, 1000);
-
+    const interval = setInterval(() => setSeconds((prev) => prev + 1), 1000);
     return () => clearInterval(interval);
   }, [isSyncing, current, total]);
 
-  // 2. Format thời gian 00:00 (Sử dụng useMemo để tránh tính toán lại thừa)
   const formattedTime = useMemo(() => {
     const mins = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   }, [seconds]);
 
-  // 3. Tính toán % tiến độ
-  // Đảm bảo không vượt quá 100% nếu có logic re-review
   const progressPercentage = Math.min((current / total) * 100, 100);
   const remainingCards = total - current;
 
   return (
-    <div className="w-full space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
-      <div className="flex items-end justify-between">
-        {/* Chỉ số thẻ & Mục tiêu */}
+    <div className="w-full glass-panel p-4 rounded-xl transition-all duration-300">
+      {/* Header - responsive flex */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-sm">
-            <Target size={20} className="animate-pulse" />
+          <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center shadow-sm">
+            <Target size={18} className="text-primary" />
           </div>
-          <div className="space-y-0.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/70">
-              Tiến độ phiên học
-            </p>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-black tabular-nums tracking-tighter">{current}</span>
-              <span className="text-sm font-bold text-muted-foreground/50">/ {total} thẻ</span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tiến độ học tập</p>
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span className="text-2xl font-bold tabular-nums tracking-tight text-foreground">{current}</span>
+              <span className="text-sm font-medium text-muted-foreground">/ {total} thẻ</span>
               {remainingCards > 0 && (
-                <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-secondary text-secondary-foreground animate-in fade-in duration-1000">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                   Còn {remainingCards}
                 </span>
               )}
@@ -62,57 +51,51 @@ export const ReviewProgress = ({ current, total, isSyncing = false }: ReviewProg
           </div>
         </div>
 
-        {/* Timer & Sync Status */}
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <div
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors bg-card shadow-sm",
+              "flex items-center gap-2 px-3 py-1.5 rounded-full border bg-background/50",
               isSyncing ? "border-primary/30" : "border-border",
             )}>
             <Timer size={14} className={cn(isSyncing ? "text-primary" : "text-muted-foreground")} />
-            <span className="font-mono text-sm font-black tabular-nums">{formattedTime}</span>
+            <span className="font-mono text-sm font-bold tabular-nums">{formattedTime}</span>
           </div>
-
           {isSyncing && (
-            <div className="flex items-center gap-1.5 px-2">
-              <Loader2 size={10} className="animate-spin text-primary" />
-              <span className="text-[9px] font-black uppercase tracking-widest text-primary">Đang lưu kết quả...</span>
+            <div className="flex items-center gap-1.5 bg-primary/10 px-3 py-1.5 rounded-full">
+              <Loader2 size={12} className="animate-spin text-primary" />
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Đang lưu...</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Thanh Progress Bar */}
-      <div className="relative group">
-        <Progress
-          value={progressPercentage}
-          className="h-3 bg-secondary/50 overflow-hidden rounded-full border border-border/50"
-        />
-
-        {/* Glow effect tại đầu thanh progress */}
-        <div
-          className="absolute top-0 h-3 w-8 bg-linear-to-r from-transparent via-white/40 to-transparent transition-all duration-500 ease-out"
-          style={{
-            left: `${progressPercentage - 5}%`,
-            opacity: progressPercentage > 5 ? 1 : 0,
-          }}
-        />
-
-        {/* Milestone indicator (Tùy chọn: Đánh dấu mốc 50%, 100%) */}
-        <div className="absolute inset-0 flex justify-between px-1 pointer-events-none">
-          <div className="h-full w-px bg-background/20 ml-[50%]" />
-        </div>
+      {/* Progress bar with glow */}
+      <div className="relative my-2">
+        <Progress value={progressPercentage} className="h-2 bg-muted rounded-full overflow-hidden" />
+        {progressPercentage > 0 && (
+          <div
+            className="absolute top-0 h-2 w-8 bg-gradient-to-r from-transparent via-primary/40 to-transparent transition-all duration-300 rounded-full"
+            style={{ left: `calc(${progressPercentage}% - 8px)` }}
+          />
+        )}
       </div>
 
-      {/* Quick Fact nhỏ bên dưới (Optional) */}
-      <div className="flex justify-between items-center px-1">
-        <div className="flex items-center gap-1 text-muted-foreground/60">
-          <Zap size={10} className="fill-current" />
-          <span className="text-[9px] font-bold uppercase">Focus Mode Active</span>
+      {/* Footer status */}
+      <div className="flex justify-between items-center mt-2 px-0.5">
+        <div className="flex items-center gap-1.5 text-muted-foreground/70">
+          <Zap size={12} className="fill-current" />
+          <span className="text-xs font-semibold uppercase tracking-wide">Chế độ tập trung</span>
         </div>
-        <span className="text-[9px] font-bold uppercase text-muted-foreground/60 italic">
-          {progressPercentage === 100 ? "Hoàn thành!" : "Cố gắng lên!"}
-        </span>
+        <div className="flex items-center gap-1">
+          <TrendingUp size={12} className="text-primary/60" />
+          <span
+            className={cn(
+              "text-xs font-bold uppercase tracking-wide",
+              progressPercentage === 100 ? "text-primary" : "text-muted-foreground/60",
+            )}>
+            {progressPercentage === 100 ? "Hoàn thành!" : "Cố gắng lên!"}
+          </span>
+        </div>
       </div>
     </div>
   );

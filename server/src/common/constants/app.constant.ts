@@ -1,8 +1,9 @@
+// src/common/constants/app.constant.ts
+
 export const APP_CONSTANTS = {
   APP_NAME: 'NestJS Server',
   API_PREFIX: 'api',
 
-  DEFAULT_PAGE: 1,
   DEFAULT_LIMIT: 10,
   MAX_LIMIT: 100,
 

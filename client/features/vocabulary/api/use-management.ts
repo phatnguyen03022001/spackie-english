@@ -7,6 +7,7 @@ import { vocabKeys } from "./use-query-keys";
 import {
   CreateDeckInput,
   CreateCardInput,
+  CreateCardFromWordInput,
   UpdateCardInput,
   DeckSchema,
   CardSchema,
@@ -22,6 +23,10 @@ interface ApiError {
 
 // --- QUERIES ---
 
+/**
+ * Fetch all decks created by the current teacher/admin
+ * @returns Query result with array of Deck objects
+ */
 export const useMyDecks = () =>
   useQuery({
     queryKey: vocabKeys.decks(),
@@ -33,6 +38,11 @@ export const useMyDecks = () =>
     staleTime: 1000 * 60 * 5,
   });
 
+/**
+ * Fetch detailed information about a specific deck including its cards
+ * @param id - Deck ID
+ * @returns Query result with deck details and cards array
+ */
 export const useDeckDetails = (id: string) =>
   useQuery({
     queryKey: vocabKeys.deck(id),
@@ -147,6 +157,27 @@ export const useAddCard = () => {
   });
 };
 
+/**
+ * Add card from existing word ID
+ * @description Creates a card using an existing word from the vocabulary database
+ */
+export const useAddCardFromWord = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ deckId, data }: { deckId: string; data: CreateCardFromWordInput }) => {
+      const res = await api.post(`/management/vocab/decks/${deckId}/cards/from-word`, data);
+      return CardSchema.parse(res.data.data);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: vocabKeys.deck(variables.deckId) });
+      toast.success("Đã thêm thẻ từ từ có sẵn");
+    },
+    onError: (error: AxiosError<ApiError>) => {
+      toast.error(error.response?.data?.message || "Không thể thêm thẻ từ từ có sẵn");
+    },
+  });
+};
+
 export const useBulkImport = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -174,7 +205,14 @@ export const useUpdateCard = () => {
     onSuccess: (data, variables) => {
       // variables ở đây chính là { cardId, deckId, data }
       queryClient.invalidateQueries({ queryKey: vocabKeys.deck(variables.deckId) });
+      // Nếu có deckId mới trong data, cũng cần invalidate deck đó
+      if (data.deckId && data.deckId !== variables.deckId) {
+        queryClient.invalidateQueries({ queryKey: vocabKeys.deck(data.deckId) });
+      }
       toast.success("Cập nhật thẻ thành công");
+    },
+    onError: (error: AxiosError<ApiError>) => {
+      toast.error(error.response?.data?.message || "Cập nhật thẻ thất bại");
     },
   });
 };
@@ -189,6 +227,40 @@ export const useDeleteCard = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: vocabKeys.deck(variables.deckId) });
       toast.success("Xóa thẻ thành công");
+    },
+    onError: (error: AxiosError<ApiError>) => {
+      toast.error(error.response?.data?.message || "Xóa thẻ thất bại");
+    },
+  });
+};
+
+/**
+ * Move card to another deck
+ * @description Moves a card from current deck to target deck
+ */
+export const useMoveCard = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      cardId,
+      fromDeckId: _fromDeckId,
+      toDeckId,
+    }: {
+      cardId: string;
+      fromDeckId: string;
+      toDeckId: string;
+    }) => {
+      const res = await api.patch(`/management/vocab/cards/${cardId}/move`, { toDeckId });
+      return CardSchema.parse(res.data.data);
+    },
+    onSuccess: (_data, variables) => {
+      // Invalidate both source and target decks
+      queryClient.invalidateQueries({ queryKey: vocabKeys.deck(variables.fromDeckId) });
+      queryClient.invalidateQueries({ queryKey: vocabKeys.deck(variables.toDeckId) });
+      toast.success("Di chuyển thẻ thành công");
+    },
+    onError: (error: AxiosError<ApiError>) => {
+      toast.error(error.response?.data?.message || "Di chuyển thẻ thất bại");
     },
   });
 };

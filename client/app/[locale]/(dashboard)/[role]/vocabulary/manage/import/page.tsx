@@ -1,17 +1,16 @@
-// src/app/[locale]/(dashboard)/[role]/vocabulary/manage/import/page.tsx
-
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Send, Languages, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Languages, AlertCircle, Sparkles, ArrowLeft, Zap, Globe } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useBulkImport } from "@/features/vocabulary/api/use-management"; // Điều chỉnh đường dẫn export hook của bạn
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { useBulkImport } from "@/features/vocabulary/api/use-management";
 
 export default function BulkImportPage() {
   const router = useRouter();
@@ -21,13 +20,35 @@ export default function BulkImportPage() {
   const [rawText, setRawText] = useState("");
   const bulkImport = useBulkImport();
 
-  // Xử lý logic tách từ từ Textarea (mỗi dòng một từ)
-  const handleImport = async () => {
+  useEffect(() => {
     if (!deckId) {
-      toast.error("Không tìm thấy ID bộ thẻ để import.");
-      return;
+      toast.error("Không tìm thấy bộ thẻ. Đang quay lại trang quản lý...");
+      const timer = setTimeout(() => router.push("../manage"), 1500);
+      return () => clearTimeout(timer);
     }
+  }, [deckId, router]);
 
+  // --- 1. Loading State (Tuân thủ mục 4.1 & 10) ---
+  if (!deckId) {
+    return (
+      <div className="container max-w-3xl py-10 space-y-8 animate-pulse">
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-64 rounded-2xl" />
+          <Skeleton className="h-5 w-full max-w-md rounded-lg" />
+        </div>
+        <Card className="rounded-[2.5rem] border-none shadow-2xl shadow-primary/5">
+          <CardHeader className="bg-muted/30 pb-12">
+            <Skeleton className="h-8 w-48 rounded-xl" />
+          </CardHeader>
+          <CardContent className="pt-8">
+            <Skeleton className="h-[300px] w-full rounded-[2rem]" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const handleImport = async () => {
     const words = rawText
       .split("\n")
       .map((w) => w.trim())
@@ -39,76 +60,92 @@ export default function BulkImportPage() {
     }
 
     if (words.length > 30) {
-      toast.error("Mỗi lần chỉ có thể import tối đa 30 từ.");
+      toast.error("Tối đa 30 từ mỗi lần để đảm bảo chất lượng AI.");
       return;
     }
 
     try {
-      const result = await bulkImport.mutateAsync({
-        deckId,
-        words,
-      });
-
-      toast.success(`Đã thêm thành công ${result.addedCount} từ vào bộ thẻ!`);
-
-      // Chuyển hướng về trang chi tiết bộ thẻ sau khi import xong
+      const result = await bulkImport.mutateAsync({ deckId, words });
+      toast.success(`Thành công! Đã thêm ${result.addedCount} từ vựng mới.`);
       router.push(`../manage/${deckId}`);
-    } catch (error) {
-      console.error("Bulk import failed:", error);
-      // Toast error thường đã được xử lý trong hook, nếu chưa có thì bổ sung ở đây
+    } catch {
+      // Error handled by mutation hook
     }
   };
 
   return (
-    <div className="container max-w-3xl py-10 space-y-8">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-black tracking-tight">Import hàng loạt</h1>
-        <p className="text-muted-foreground font-medium">
-          Hệ thống sẽ tự động sử dụng AI để tra cứu nghĩa, phiên âm và ví dụ cho danh sách từ của bạn.
+    <div className="container max-w-3xl py-10 space-y-10 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* --- Header (Tuân thủ mục 6.1) --- */}
+      <header className="space-y-2 px-1">
+        <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[0.2em] opacity-70">
+          <Zap size={12} fill="currentColor" />
+          <span>AI Power Assisted</span>
+        </div>
+        <h1 className="text-4xl font-black tracking-tight">
+          Import <span className="text-primary">hàng loạt</span>
+        </h1>
+        <p className="text-muted-foreground font-medium text-sm max-w-lg leading-relaxed">
+          Tiết kiệm thời gian bằng cách nhập danh sách từ. AI của chúng tôi sẽ tự động hoàn thiện nghĩa, phiên âm và ví
+          dụ.
         </p>
-      </div>
+      </header>
 
-      <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden">
-        <CardHeader className="bg-primary/5 pb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-primary rounded-lg text-primary-foreground">
-              <Languages className="h-5 w-5" />
+      {/* --- Main Import Card (Tuân thủ mục 5 & 6.3) --- */}
+      <Card className="rounded-[2.5rem] border-primary/5 shadow-2xl shadow-primary/5 overflow-hidden glass-panel">
+        <CardHeader className="bg-primary/[0.03] border-b border-primary/5 pb-8 p-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-inner">
+                <Languages className="h-6 w-6" />
+              </div>
+              <div>
+                <CardTitle className="text-xl font-black tracking-tight">Danh sách từ</CardTitle>
+                <CardDescription className="font-bold text-xs uppercase tracking-widest opacity-60">
+                  Mỗi từ nằm trên một dòng riêng biệt
+                </CardDescription>
+              </div>
             </div>
-            <CardTitle className="text-xl font-bold">Danh sách từ vựng</CardTitle>
+            <Badge variant="outline" className="rounded-full border-primary/20 font-black text-[10px] px-3">
+              {rawText.split("\n").filter((t) => t.trim()).length}/30 TỪ
+            </Badge>
           </div>
-          <CardDescription className="text-base font-medium">
-            Nhập mỗi từ trên một dòng (Tối đa 30 từ mỗi lần).
-          </CardDescription>
         </CardHeader>
 
-        <CardContent className="pt-8">
-          <Textarea
-            placeholder="apple&#10;banana&#10;orange..."
-            className="min-h-[300px] text-lg font-medium rounded-2xl border-2 focus-visible:ring-primary p-6"
-            value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
-            disabled={bulkImport.isPending}
-          />
+        <CardContent className="p-8">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-linear-to-r from-primary/20 to-blue-500/20 rounded-[1.5rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+            <Textarea
+              placeholder="Ví dụ:&#10;Effortless&#10;Consistency&#10;Breakthrough..."
+              className="relative min-h-[320px] text-lg font-bold rounded-[1.5rem] border-primary/10 bg-background/50 focus-visible:ring-primary focus-visible:border-primary p-8 transition-all resize-none shadow-inner"
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              disabled={bulkImport.isPending}
+            />
+          </div>
 
-          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground font-bold italic">
-            <AlertCircle className="h-4 w-4" />
-            <span>Lưu ý: Các từ đã tồn tại trong bộ thẻ của bạn sẽ được tự động bỏ qua.</span>
+          <div className="mt-6 flex items-start gap-3 p-4 bg-orange-50/50 dark:bg-orange-950/20 rounded-2xl border border-orange-200/50 dark:border-orange-900/30">
+            <AlertCircle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+            <p className="text-xs font-bold text-orange-700/80 dark:text-orange-400/80 leading-relaxed">
+              Lưu ý: Hệ thống sẽ tự động bỏ qua các từ đã có trong bộ thẻ. Tối đa 30 từ để đảm bảo độ chính xác cao nhất
+              cho dữ liệu AI.
+            </p>
           </div>
         </CardContent>
 
-        <CardFooter className="bg-muted/30 border-t p-6 flex justify-between items-center">
+        <CardFooter className="bg-primary/[0.02] border-t border-primary/5 p-8 flex justify-between items-center">
           <Button
             variant="ghost"
-            className="rounded-xl font-bold"
+            className="rounded-xl font-black text-xs uppercase tracking-widest hover:bg-primary/5"
             onClick={() => router.back()}
             disabled={bulkImport.isPending}>
+            <ArrowLeft className="mr-2 h-4 w-4 stroke-[3]" />
             Quay lại
           </Button>
 
           <Button
             onClick={handleImport}
             disabled={bulkImport.isPending || !rawText.trim()}
-            className="rounded-xl font-bold px-8 h-12 shadow-lg shadow-primary/20">
+            className="rounded-2xl font-black text-xs uppercase tracking-[0.15em] px-10 h-14 bg-primary shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95">
             {bulkImport.isPending ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -116,7 +153,7 @@ export default function BulkImportPage() {
               </>
             ) : (
               <>
-                <Send className="mr-2 h-5 w-5" />
+                <Sparkles className="mr-2 h-5 w-5 fill-white/20" />
                 Bắt đầu Import
               </>
             )}
@@ -124,22 +161,27 @@ export default function BulkImportPage() {
         </CardFooter>
       </Card>
 
-      {/* Hiển thị hướng dẫn nhanh */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Alert className="rounded-2xl border-none bg-blue-50 text-blue-800">
-          <CheckCircle2 className="h-4 w-4 stroke-blue-800" />
-          <AlertTitle className="font-bold">Tự động hóa</AlertTitle>
-          <AlertDescription className="font-medium">
-            Tự động lấy phiên âm IPA và audio từ từ điển Oxford/Google.
-          </AlertDescription>
-        </Alert>
-        <Alert className="rounded-2xl border-none bg-green-50 text-green-800">
-          <CheckCircle2 className="h-4 w-4 stroke-green-800" />
-          <AlertTitle className="font-bold">Dịch thuật</AlertTitle>
-          <AlertDescription className="font-medium">
-            Tự động dịch nghĩa sang tiếng Việt phù hợp ngữ cảnh phổ biến.
-          </AlertDescription>
-        </Alert>
+      {/* --- Feature Badges (Tuân thủ mục 6.2 & 6.3) --- */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 px-1">
+        <div className="flex items-center gap-4 p-5 rounded-3xl glass-panel border-blue-500/10">
+          <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
+            <Globe size={20} strokeWidth={2.5} />
+          </div>
+          <div>
+            <h4 className="text-[11px] font-black uppercase tracking-widest">Nguồn từ điển</h4>
+            <p className="text-xs text-muted-foreground font-medium">Tích hợp Oxford & Cambridge</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 p-5 rounded-3xl glass-panel border-green-500/10">
+          <div className="h-10 w-10 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500 shrink-0">
+            <Zap size={20} strokeWidth={2.5} />
+          </div>
+          <div>
+            <h4 className="text-[11px] font-black uppercase tracking-widest">Tự động hóa</h4>
+            <p className="text-xs text-muted-foreground font-medium">IPA & Audio chuẩn bản ngữ</p>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://repomix.com/schemas/latest/schema.json",
+  "input": {
+    "maxFileSize": 52428800
+  },
+  "output": {
+    "filePath": "nest-senior-context.md",
+    "style": "markdown",
+    "parsableStyle": false,
+    "fileSummary": true,
+    "directoryStructure": true,
+    "files": true,
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "compress": false,
+    "topFilesLength": 5,
+    "showLineNumbers": true,
+    "truncateBase64": false,
+    "copyToClipboard": false,
+    "includeFullDirectoryStructure": true,
+    "tokenCountTree": true,
+    "git": {
+      "sortByChanges": true,
+      "sortByChangesMaxCommits": 100,
+      "includeDiffs": false,
+      "includeLogs": false,
+      "includeLogsCount": 50
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "prisma/schema.prisma",
+    "__Docs-NEST/**/*.md",
+    "package.json",
+    "tsconfig.json",
+    "nest-cli.json"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDotIgnore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "node_modules/**",
+      "dist/**",
+      "coverage/**",
+      "prisma/migrations/**",
+      "test/**",
+      "**/*.spec.ts",
+      "**/*.e2e-spec.ts",
+      "**/*.deprecated",
+      "package-lock.json",
+      "tsconfig.build.json",
+      "tsconfig.build.tsbuildinfo",
+      ".env*",
+      "README.md"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": true
+  },
+  "tokenCount": {
+    "encoding": "o200k_base"
+  }
+}

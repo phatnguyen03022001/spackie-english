@@ -10,7 +10,6 @@ import {
   CancelSessionResponseSchema,
   StartSessionInput,
 } from "../schemas";
-import { CardStatus } from "../types";
 
 interface ApiError {
   message: string;
@@ -36,19 +35,8 @@ export const useSyncSession = () => {
 
   return useMutation({
     mutationFn: async (data: SyncSessionInput) => {
-      const enrichedData = {
-        ...data,
-        results: data.results.map((result) => ({
-          ...result,
-          status: result.status ?? CardStatus.NEW,
-          interval: result.interval ?? 0,
-          repetitions: result.repetitions ?? 0,
-          easeFactor: result.easeFactor ?? 2.5,
-          nextReview: result.nextReview ?? new Date().toISOString(),
-        })),
-      };
-      console.log("Sending sync data:", enrichedData); // Log để debug
-      const validated = SyncSessionSchema.parse(enrichedData);
+      // Validate data với schema mới (fields optional)
+      const validated = SyncSessionSchema.parse(data);
       const res = await api.post("/vocab/reviews/session/sync", validated);
       return res.data.data;
     },
@@ -58,7 +46,7 @@ export const useSyncSession = () => {
       toast.success("Đã đồng bộ kết quả học tập!");
     },
     onError: (error: AxiosError<ApiError>) => {
-      console.error("Sync error response:", error.response?.data); // Log chi tiết lỗi
+      console.error("Sync error response:", error.response?.data);
       toast.error(error.response?.data?.message || "Không thể đồng bộ dữ liệu");
     },
   });

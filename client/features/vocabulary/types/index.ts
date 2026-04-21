@@ -1,17 +1,17 @@
-// import { z } from "zod";
+import type { Card, Deck } from "../schemas";
 
 /**
  * ==========================================
- * ENUMS (Khớp với Prisma Schema)
+ * ENUMS (Khớp với Prisma Schema và Server DTOs)
  * ==========================================
  */
 
-export enum StudyMode {
+export enum SessionMode {
+  DEFAULT = "default",
   ALL = "all",
   HARD = "hard",
   RECENT = "recent",
   PREVIEW = "preview",
-  DEFAULT = "default",
 }
 
 export enum UserRole {
@@ -37,7 +37,7 @@ export enum CardStatus {
 
 /**
  * ==========================================
- * SUB-TYPES (Embedded trong MongoDB)
+ * SUB-TYPES (Embedded trong MongoDB) - Khớp với server DefinitionDto và MeaningDto
  * ==========================================
  */
 export interface Definition {
@@ -55,20 +55,19 @@ export interface Meaning {
 export interface ReviewResultDto {
   cardId: string;
   rating: number; // bắt buộc
-  status?: CardStatus; // optional
-  interval?: number; // optional
-  repetitions?: number; // optional
-  easeFactor?: number; // optional
-  nextReview?: string; // optional
+  status?: CardStatus; // optional - khớp với server
+  interval?: number; // optional - khớp với server
+  repetitions?: number; // optional - khớp với server
+  easeFactor?: number; // optional - khớp với server
+  nextReview?: string; // optional - khớp với server
 }
+
 /**
  * ==========================================
  * CORE ENTITIES (Imported from schemas)
  * ==========================================
  */
 export type {
-  Deck,
-  Card,
   UserStatsResponse,
   HeatmapData,
   StartSessionResponse,
@@ -87,6 +86,11 @@ export type {
  * DTOs (Data Transfer Objects) cho API (Imported from schemas)
  * ==========================================
  */
+/**
+ * ==========================================
+ * DTOs (Data Transfer Objects) cho API (Imported from schemas)
+ * ==========================================
+ */
 export type {
   CreateDeckInput,
   CreateCardInput,
@@ -94,6 +98,7 @@ export type {
   UpdateCardInput,
   SyncSessionInput,
   StartSessionInput,
+  Card,
 } from "../schemas";
 
 /**
@@ -120,4 +125,93 @@ export interface SM2Result {
   easeFactor: number;
   repetitions: number;
   nextReview: Date;
+}
+
+/**
+ * ==========================================
+ * ADDITIONAL TYPES TO MATCH SERVER DTOs
+ * ==========================================
+ */
+export interface CreateSessionDto {
+  deckId: string;
+  mode?: SessionMode;
+  limit?: number;
+  page?: number;
+}
+
+export interface SyncSessionDto {
+  sessionId: string;
+  deckId: string;
+  results: ReviewResultDto[];
+  minutesSpent?: number;
+}
+
+export interface BulkImportResultDto {
+  success: boolean;
+  addedCount: number;
+  failedWords?: { word: string; error: string }[];
+  message?: string;
+}
+
+export interface DeleteResultDto {
+  success: boolean;
+  message?: string;
+}
+
+export interface EnrollResultDto {
+  message: string;
+  added: number;
+  existing?: number;
+}
+
+export interface SuccessDto {
+  success: boolean;
+}
+
+export interface DueCountDto {
+  dueCount: number;
+}
+
+export interface StartSessionDto {
+  sessionId: string;
+  cards: Card[]; // Card type đã được import
+}
+
+export interface SyncResultDto {
+  success: boolean;
+  processed: number;
+}
+
+export interface LearningSessionDto {
+  id: string;
+  userId: string;
+  deckId: string;
+  startTime: Date;
+  endTime?: Date;
+  cardsProcessed: number;
+  minutesSpent: number;
+  rawResults?: Record<string, unknown>;
+}
+
+export interface ForecastDto {
+  [date: string]: number;
+}
+
+export interface HeatmapDto {
+  [date: string]: number;
+}
+
+export interface DeckAnalyticsDto {
+  totalCards: number;
+  masteredCards: number;
+  progress: number;
+}
+
+export interface PaginatedDecksDto {
+  items: Deck[]; // Deck type đã được import
+  meta: {
+    total: number;
+    page: number;
+    lastPage: number;
+  };
 }

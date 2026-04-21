@@ -10,81 +10,99 @@ interface ReviewActionsProps {
   isSyncing?: boolean;
   onRate: (rating: number) => void;
   onFlip: () => void;
+  isAnswerCorrect?: boolean;
 }
 
-// Sử dụng các biến màu từ globals.css (shadcn default)
 const RATINGS = [
   {
     value: 1,
     label: "Quên sạch",
-    color: "bg-destructive text-destructive-foreground hover:opacity-90 border-destructive/50",
+    // Red/Rose: Chuyên nghiệp, không quá gắt
+    color: "bg-rose-500 dark:bg-rose-600 hover:bg-rose-600 dark:hover:bg-rose-500 border-rose-700 dark:border-rose-800",
+    ringColor: "ring-rose-500/30",
   },
   {
     value: 2,
     label: "Mơ hồ",
-    color: "bg-orange-500 text-white hover:bg-orange-600 border-orange-700/30", // Màu cam thường không có trong shadcn default, giữ nguyên hoặc dùng accent
+    // Amber/Orange: Cảnh báo nhẹ nhàng
+    color:
+      "bg-amber-500 dark:bg-amber-600 hover:bg-amber-600 dark:hover:bg-amber-500 border-amber-700 dark:border-amber-800",
+    ringColor: "ring-amber-500/30",
   },
   {
     value: 3,
     label: "Nhớ tốt",
-    color: "bg-primary text-primary-foreground hover:opacity-90 border-primary/50",
+    // Ocean Blue: Đồng bộ với Primary theme
+    color: "bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-500 border-blue-700 dark:border-blue-800",
+    ringColor: "ring-blue-500/30",
   },
   {
     value: 4,
     label: "Quá dễ",
-    color: "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-secondary-foreground/10",
+    // Emerald: Thành công, mượt mà
+    color:
+      "bg-emerald-500 dark:bg-emerald-600 hover:bg-emerald-600 dark:hover:bg-emerald-500 border-emerald-700 dark:border-emerald-800",
+    ringColor: "ring-emerald-500/30",
   },
 ];
 
-export const ReviewActions = ({ isFlipped, isSyncing = false, onRate, onFlip }: ReviewActionsProps) => {
+export const ReviewActions = ({
+  isFlipped,
+  isSyncing = false,
+  onRate,
+  onFlip,
+  isAnswerCorrect = false,
+}: ReviewActionsProps) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isSyncing) return;
-
-      // ❗ ignore nếu đang gõ ở input/editable
       const el = document.activeElement as HTMLElement | null;
-
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) {
-        return;
-      }
-
-      // ❗ tránh giữ phím
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
       if (e.repeat) return;
 
       if (!isFlipped) {
         if (e.code === "Space") {
           e.preventDefault();
-          e.stopPropagation();
           onFlip();
         }
         return;
       }
 
-      // ❗ chỉ nhận phím số hàng trên (không numpad)
       if (["Digit1", "Digit2", "Digit3", "Digit4"].includes(e.code)) {
-        e.preventDefault();
-        e.stopPropagation();
-
         const rating = Number(e.code.replace("Digit", ""));
+        if (rating >= 3 && !isAnswerCorrect) return;
+        e.preventDefault();
         onRate(rating);
       }
     };
 
-    // capture phase → chạy TRƯỚC React & input
     window.addEventListener("keydown", handleKeyDown, true);
-
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [isFlipped, isSyncing, onRate, onFlip]);
+  }, [isFlipped, isSyncing, onRate, onFlip, isAnswerCorrect]);
 
   if (!isFlipped) {
     return (
-      <div className="flex justify-center w-full animate-in fade-in zoom-in duration-300 px-4">
+      <div className="flex justify-center w-full px-4 pb-6">
         <Button
           onClick={onFlip}
           disabled={isSyncing}
           size="lg"
-          className="w-full max-w-md h-16 text-xl font-black rounded-[2rem] shadow-2xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 border-b-4 border-black/20">
-          {isSyncing ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : "LẬT THẺ (Space)"}
+          className={cn(
+            "w-full h-12 font-bold rounded-xl shadow-sm",
+            "bg-primary text-primary-foreground hover:bg-primary/90",
+            "transition-all duration-200 ease-out",
+            "hover:scale-[1.02] active:scale-[0.98]",
+          )}>
+          {isSyncing ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : (
+            <>
+              <span>LẬT THẺ</span>
+              <kbd className="hidden sm:inline-flex h-6 items-center gap-1 rounded border border-white/30 bg-white/10 px-2 text-[10px] font-medium text-white">
+                SPACE
+              </kbd>
+            </>
+          )}
         </Button>
       </div>
     );
@@ -93,33 +111,40 @@ export const ReviewActions = ({ isFlipped, isSyncing = false, onRate, onFlip }: 
   return (
     <div
       className={cn(
-        "grid grid-cols-4 gap-3 md:gap-6 w-full max-w-4xl mx-auto px-4 animate-in slide-in-from-bottom-6 duration-500",
+        "grid grid-cols-2 sm:grid-cols-4 gap-4 w-full max-w-3xl mx-auto px-4 pb-6",
         isSyncing && "opacity-50 pointer-events-none",
       )}>
-      {RATINGS.map((rating) => (
-        <button
-          key={rating.value}
-          disabled={isSyncing}
-          onClick={() => onRate(rating.value)}
-          className={cn(
-            "group relative flex flex-col items-center justify-center gap-2 rounded-[2rem] py-6 px-2 transition-all shadow-xl border-b-4",
-            rating.color,
-            "hover:-translate-y-2 active:translate-y-0 active:border-b-0",
-          )}>
-          {/* Số điểm nổi bật */}
-          <span className="text-3xl md:text-4xl font-black tracking-tighter drop-shadow-md">{rating.value}</span>
+      {RATINGS.map((rating) => {
+        const isDisabled = rating.value >= 3 && !isAnswerCorrect;
+        return (
+          <button
+            key={rating.value}
+            disabled={isSyncing || isDisabled}
+            onClick={() => onRate(rating.value)}
+            className={cn(
+              "group relative flex flex-col items-center justify-center gap-2",
+              "rounded-2xl py-4 px-2 transition-all duration-75",
+              "border-b-[5px] active:border-b-0 active:translate-y-[3px]",
+              "text-white shadow-lg",
+              rating.color,
+              isDisabled && "opacity-30 grayscale cursor-not-allowed border-b-0 translate-y-[3px]",
+              "focus:outline-none focus:ring-4 focus:ring-offset-2 dark:focus:ring-offset-zinc-900",
+              rating.ringColor,
+            )}>
+            {/* Phím tắt badge */}
+            <span className="text-[10px] font-bold bg-black/20 dark:bg-white/10 px-2.5 py-0.5 rounded-full uppercase tracking-widest">
+              {rating.value}
+            </span>
 
-          {/* Nhãn mô tả */}
-          <span className="text-[10px] md:text-xs font-black uppercase tracking-widest opacity-90 text-center leading-none">
-            {rating.label}
-          </span>
+            <span className="text-sm sm:text-base font-extrabold tracking-tight text-center leading-tight">
+              {rating.label}
+            </span>
 
-          {/* KND: Keyboard Hint */}
-          <div className="hidden md:flex absolute -top-2 -right-1 h-7 w-7 items-center justify-center bg-background text-foreground text-xs rounded-full border-2 border-current font-black shadow-lg group-hover:scale-120 transition-transform">
-            {rating.value}
-          </div>
-        </button>
-      ))}
+            {/* Hiệu ứng sáng bề mặt khi hover */}
+            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+          </button>
+        );
+      })}
     </div>
   );
 };

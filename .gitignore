@@ -1,9 +1,11 @@
-# --- COMMON (Dependencies & Logs) ---
+# --- TÀI LIỆU (Theo yêu cầu: Không push gì liên quan đến __DOCS/) ---
+__DOCS/
+
+# --- COMMON (Dependencies & Build) ---
 node_modules/
 dist/
 build/
 out/
-en-vi/
 .pnp
 .pnp.*
 .yarn/*
@@ -12,7 +14,35 @@ en-vi/
 !.yarn/releases
 !.yarn/versions
 
-# Logs
+# --- NESTJS SPECIFIC ---
+.nest/
+coverage/
+.nyc_output/
+test-results/
+# Đã xóa dòng "test/" để giữ lại folder code E2E test
+pids
+*.pid
+*.seed
+*.pid.lock
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+*.tsbuildinfo
+
+# --- DATABASE (Prisma & Local DB) ---
+/prisma/migrations/
+*.db
+*.db-journal
+/prisma/seed/data/* # --- ENVIRONMENT & SECURITY (Rất quan trọng) ---
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# --- LOGS ---
 logs
 *.log
 npm-debug.log*
@@ -21,29 +51,15 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# --- NEXT.JS (Client Directory) ---
+# --- AI & TOOLS (Repomix/Deepseek) ---
+# Tránh push file tóm tắt source code cho AI lên Git
+repomix-output.txt
+repomix-output.md
+
+# --- NEXT.JS (Nếu có tích hợp) ---
 .next/
 next-env.d.ts
-*.tsbuildinfo
 .vercel
-
-# --- NESTJS (Server Directory) ---
-# Ignore test output only; DO NOT ignore "test/" folder as it contains .spec.ts files
-coverage/
-.nyc_output/
-test-results/
-test/
-pids
-*.pid
-*.seed
-*.pid.lock
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-
-# --- ENVIRONMENT & SECURITY ---
-.env
-.env.*
-!.env.example
-.env.local
 
 # --- IDE & OS ---
 .DS_Store
@@ -55,7 +71,6 @@ Thumbs.db
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# --- TEMP & CERTIFICATES ---
+# --- TEMP ---
 .temp/
 .tmp/
-*.pem

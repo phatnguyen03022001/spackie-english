@@ -1,12 +1,11 @@
 // src/common/logger/logger.options.ts
-
 import { ConfigService } from '@nestjs/config';
 import type { LoggerModuleAsyncParams, Params } from 'nestjs-pino';
 import { trace, context } from '@opentelemetry/api';
 import type pino from 'pino';
 import crypto from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'http';
-import { safeSerialize } from '../utils/serialize'; // ✅ import
+import { safeSerialize } from '../utils/serialize.util';
 
 type LogLevel =
   | 'trace'
@@ -32,7 +31,6 @@ export const loggerOptions: LoggerModuleAsyncParams = {
       configService.get<boolean>('logger.logResponseBody') ?? !isProduction;
     const logRequestBody =
       configService.get<boolean>('logger.logRequestBody') ?? !isProduction;
-
     const rawRedactPaths = configService.get<string[]>('logger.redactPaths');
     const redactPaths = Array.isArray(rawRedactPaths) ? rawRedactPaths : [];
 
@@ -42,27 +40,22 @@ export const loggerOptions: LoggerModuleAsyncParams = {
           'logger.level',
           isProduction ? 'info' : 'debug',
         ),
-
         customLogLevel: (
           _req: IncomingMessage,
           res: ServerResponse,
           err?: Error,
         ): LogLevel => resolveLogLevel(res, err),
-
         customSuccessMessage: (req: IncomingMessage, res: ServerResponse) =>
           `${req.method} ${req.url} ${res.statusCode}`,
-
         customErrorMessage: (
           req: IncomingMessage,
           res: ServerResponse,
           err: Error,
         ) => `${req.method} ${req.url} ${res.statusCode} - ${err.message}`,
-
         redact: {
           paths: redactPaths,
           censor: '[REDACTED]',
         } satisfies pino.redactOptions,
-
         mixin(): Record<string, string> {
           const span = trace.getSpan(context.active());
           if (!span) return {};
@@ -74,7 +67,6 @@ export const loggerOptions: LoggerModuleAsyncParams = {
           if (Array.isArray(existingId)) return existingId[0];
           return existingId ?? crypto.randomUUID();
         },
-
         serializers: {
           req(req: IncomingMessage & { body?: unknown }) {
             return {

@@ -5,7 +5,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 const intlMiddleware = createMiddleware(routing);
 
-// Các đường dẫn công khai (cho phép không cần đăng nhập)
 const PUBLIC_PATHS = ["/about", "/privacy", "/terms", "/contact", "/help"];
 
 export default function middleware(req: NextRequest) {
@@ -14,7 +13,6 @@ export default function middleware(req: NextRequest) {
   const userCookie = req.cookies.get("user")?.value;
   const locale = pathname.split("/")[1] || "en";
 
-  // Chỉ match chính xác các đường dẫn auth, không match con
   const authPaths = ["/login", "/register", "/forgot-password"];
   const isAuthPage = authPaths.some((p) => pathname === `/${locale}${p}` || pathname === `/${locale}${p}/`);
   const isVerifyPage = pathname.includes("/verify");
@@ -37,8 +35,13 @@ export default function middleware(req: NextRequest) {
       if (isAccessingWrongRole) {
         return NextResponse.redirect(new URL(`/${locale}/${rolePath}`, req.url));
       }
+
+      // **QUAN TRỌNG: Redirect role root → /vocabulary**
+      const isRoleRoot = pathname === `/${locale}/${rolePath}` || pathname === `/${locale}/${rolePath}/`;
+      if (isRoleRoot) {
+        return NextResponse.redirect(new URL(`/${locale}/${rolePath}/vocabulary`, req.url));
+      }
     } catch {
-      // Cookie hỏng -> xóa và redirect về login
       const response = NextResponse.redirect(new URL(`/${locale}/login`, req.url));
       response.cookies.delete("token");
       response.cookies.delete("user");
