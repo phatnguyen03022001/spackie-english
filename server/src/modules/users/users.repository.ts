@@ -2,7 +2,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@database/prisma.service';
 import { User, Prisma } from '@prisma/client';
-import { UserListQueryDto } from './dto/user-list-query.dto';
+import { UserListQueryDto } from '@modules/users/dto/user-list-query.dto';
+import { parseSortQuery } from '@common/utils/pagination.util';
 
 // Danh sách các trường cho phép sắp xếp
 const ALLOWED_SORT_FIELDS = [
@@ -19,26 +20,27 @@ const ALLOWED_SORT_FIELDS = [
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // create
   async create(data: Prisma.UserCreateInput): Promise<User> {
-    return this.prisma.user.create({ data });
+    return this.prisma.user.create({
+      data: { ...data, deletedAt: null },
+    });
   }
 
+  // findById
   async findById(id: string, includeDeleted = false): Promise<User | null> {
     const where: Prisma.UserWhereUniqueInput = { id };
-    if (!includeDeleted) {
-      where.deletedAt = null;
-    }
+    if (!includeDeleted) where.deletedAt = null;
     return this.prisma.user.findUnique({ where });
   }
 
+  // findByEmail
   async findByEmail(
     email: string,
     includeDeleted = false,
   ): Promise<User | null> {
     const where: Prisma.UserWhereInput = { email };
-    if (!includeDeleted) {
-      where.deletedAt = null;
-    }
+    if (!includeDeleted) where.deletedAt = null;
     return this.prisma.user.findFirst({ where });
   }
 
@@ -48,7 +50,7 @@ export class UsersRepository {
   ): Promise<User | null> {
     const where: Prisma.UserWhereInput = { username };
     if (!includeDeleted) {
-      where.deletedAt = null;
+      where.deletedAt = null; // ✅ thay đổi
     }
     return this.prisma.user.findFirst({ where });
   }
@@ -56,7 +58,7 @@ export class UsersRepository {
   async findAll(
     query: UserListQueryDto,
   ): Promise<{ users: User[]; total: number }> {
-    const { page, limit, search, role, status, sortBy, sortOrder } = query;
+    const { page, limit, search, role, status, sort } = query;
     const skip = (page - 1) * limit;
     const where: Prisma.UserWhereInput = {};
 
@@ -73,7 +75,7 @@ export class UsersRepository {
       where.role = role as Prisma.EnumRoleFilter<'User'>;
     }
 
-    // Status filter
+    // findAll – phần status filter
     if (status === 'active') {
       where.isBanned = false;
       where.deletedAt = null;
@@ -86,15 +88,15 @@ export class UsersRepository {
       where.deletedAt = null;
     }
 
-    // Validate sortBy field
-    let validSortBy: string = sortBy;
-    if (!ALLOWED_SORT_FIELDS.includes(sortBy)) {
+    // Parse sort
+    const { field, order } = parseSortQuery(sort);
+    let validSortBy = field;
+    if (!ALLOWED_SORT_FIELDS.includes(field)) {
       validSortBy = 'createdAt';
     }
 
     const orderBy: Prisma.UserOrderByWithRelationInput = {};
-    orderBy[validSortBy as keyof Prisma.UserOrderByWithRelationInput] =
-      sortOrder;
+    orderBy[validSortBy as keyof Prisma.UserOrderByWithRelationInput] = order;
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({ where, skip, take: limit, orderBy }),

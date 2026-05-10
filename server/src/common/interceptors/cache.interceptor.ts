@@ -10,10 +10,10 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Observable, of, from, lastValueFrom } from 'rxjs';
 import { Request } from 'express';
-import { ICacheManager } from '../interfaces/cache-manager.interface';
-import { CACHE_TTL_KEY } from '../decorators/cache-ttl.decorator';
+import { ICacheManager } from '@common/interfaces/cache-manager.interface';
+import { CACHE_TTL_KEY } from '@common/decorators/cache-ttl.decorator';
 import { ConfigService } from '@nestjs/config';
-import { RedisLockService } from '../../infrastructure/redis/redis-lock.service';
+import { RedisLockService } from '@/infrastructure/redis/redis-lock.service';
 import { Mutex } from 'async-mutex';
 
 @Injectable()

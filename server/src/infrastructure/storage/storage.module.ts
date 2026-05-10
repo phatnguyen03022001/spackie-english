@@ -1,9 +1,9 @@
 import { Module, Global } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerService } from '@common/logger/logger.service';
-import { StorageService } from './storage.service';
-import { CloudinaryProvider } from './cloudinary.provider';
-import { StorageHealthIndicator } from './storage.health';
+import { StorageService } from '@infrastructure/storage/storage.service';
+import { CloudinaryProvider } from '@infrastructure/storage/cloudinary.provider';
+import { StorageHealthIndicator } from '@infrastructure/storage/storage.health';
 import { TerminusModule } from '@nestjs/terminus';
 
 @Global()

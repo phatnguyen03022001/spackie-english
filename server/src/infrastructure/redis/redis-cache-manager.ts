@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ICacheManager } from '@common/interfaces/cache-manager.interface';
-import { RedisService } from './redis.service';
+import { RedisService } from '@infrastructure/redis/redis.service';
 
 // Prefix for all cache keys to allow safe namespace deletion
 const CACHE_KEY_PREFIX = 'cache:';

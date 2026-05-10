@@ -4,47 +4,11 @@ import type {
   StorageProvider,
   UploadOptions,
   UploadResult,
-} from './storage.provider';
+} from '@infrastructure/storage/storage.provider';
 import type { LoggerService } from '@common/logger/logger.service';
-import { AppException } from '@common/filters/app-exception';
-import { HttpStatus, Logger } from '@nestjs/common';
-import { CircuitBreaker } from '../common/circuit-breaker';
-
-/**
- * Adapter to make LoggerService compatible with the Logger interface
- * expected by CircuitBreaker. Extends NestJS Logger and delegates
- * all calls to the underlying LoggerService.
- */
-class LoggerServiceBridge extends Logger {
-  constructor(private readonly loggerService: LoggerService) {
-    super();
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  log(message: any, ..._optionalParams: any[]) {
-    this.loggerService.log(message);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  error(message: any, ..._optionalParams: any[]) {
-    this.loggerService.error(message);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  warn(message: any, ..._optionalParams: any[]) {
-    this.loggerService.warn(message);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  debug(message: any, ..._optionalParams: any[]) {
-    this.loggerService.debug(message);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  verbose(message: any, ..._optionalParams: any[]) {
-    this.loggerService.verbose(message);
-  }
-}
+import { BusinessException } from '@/common/filters/business.exception';
+import { HttpStatus } from '@nestjs/common';
+import { CircuitBreaker } from '@infrastructure/common/circuit-breaker';
 
 export class CloudinaryProvider implements StorageProvider {
   private uploadBreaker: CircuitBreaker;
@@ -65,10 +29,8 @@ export class CloudinaryProvider implements StorageProvider {
       timeout: 60000,
     });
     this.logger.setContext(CloudinaryProvider.name);
-
-    const loggerBridge = new LoggerServiceBridge(this.logger);
-    this.uploadBreaker = new CircuitBreaker('CloudinaryUpload', loggerBridge);
-    this.deleteBreaker = new CircuitBreaker('CloudinaryDelete', loggerBridge);
+    this.uploadBreaker = new CircuitBreaker('CloudinaryUpload', this.logger);
+    this.deleteBreaker = new CircuitBreaker('CloudinaryDelete', this.logger);
   }
 
   async upload(
@@ -77,11 +39,30 @@ export class CloudinaryProvider implements StorageProvider {
     options?: UploadOptions,
   ): Promise<UploadResult> {
     return this.uploadBreaker.call(async () => {
+      // Determine resource type and transformations based on file type
+      const isAudio = originalName.match(/\.(mp3|wav|ogg|m4a|aac)$/i);
+      const isImage = originalName.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i);
+
+      const transformations: Array<Record<string, unknown>> = [];
+
+      if (isImage) {
+        // Image optimization: auto quality, auto format, max width 800px
+        transformations.push(
+          { quality: 'auto', fetch_format: 'auto' },
+          { width: 800, crop: 'limit' },
+        );
+      } else if (isAudio) {
+        // Audio optimization: bitrate 128k, mp3 format
+        transformations.push({ bitrate: '128k', format: 'mp3' });
+      }
+
       const uploadOptions: UploadApiOptions = {
         folder: options?.folder,
         public_id: options?.publicId,
         overwrite: options?.overwrite ?? true,
-        resource_type: 'auto',
+        resource_type: isAudio ? 'video' : 'auto', // Cloudinary treats audio as video
+        transformation:
+          transformations.length > 0 ? transformations : undefined,
       };
       try {
         const result: UploadApiResponse = await new Promise(
@@ -104,7 +85,7 @@ export class CloudinaryProvider implements StorageProvider {
         };
       } catch (error) {
         this.logger.error({ error, originalName }, 'Cloudinary upload failed');
-        throw new AppException(
+        throw new BusinessException(
           HttpStatus.INTERNAL_SERVER_ERROR,
           'STORAGE_UPLOAD_FAILED',
           'Failed to upload file to Cloudinary',
@@ -119,7 +100,7 @@ export class CloudinaryProvider implements StorageProvider {
         await cloudinary.uploader.destroy(publicId);
       } catch (error) {
         this.logger.error({ error, publicId }, 'Cloudinary delete failed');
-        throw new AppException(
+        throw new BusinessException(
           HttpStatus.INTERNAL_SERVER_ERROR,
           'STORAGE_DELETE_FAILED',
           'Failed to delete file from Cloudinary',
@@ -133,7 +114,7 @@ export class CloudinaryProvider implements StorageProvider {
       await cloudinary.api.ping();
     } catch (error) {
       this.logger.error({ error }, 'Cloudinary ping failed');
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.SERVICE_UNAVAILABLE,
         'STORAGE_PING_FAILED',
         'Cannot reach Cloudinary API',
@@ -141,7 +122,7 @@ export class CloudinaryProvider implements StorageProvider {
     }
   }
 
-  getSignedUrl(publicId: string, expiresIn: number = 3600): Promise<string> {
+  getSignedUrl(publicId: string, expiresIn = 3600): Promise<string> {
     try {
       const url = cloudinary.url(publicId, {
         secure: true,
@@ -151,7 +132,7 @@ export class CloudinaryProvider implements StorageProvider {
       return Promise.resolve(url);
     } catch (error) {
       this.logger.error({ error, publicId }, 'Cloudinary sign URL failed');
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.INTERNAL_SERVER_ERROR,
         'STORAGE_SIGN_FAILED',
         'Failed to generate signed URL',

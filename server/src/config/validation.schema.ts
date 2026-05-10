@@ -20,6 +20,7 @@ export const validationSchema = Joi.object({
   // Auth
   JWT_SECRET: Joi.string().required(),
   JWT_REFRESH_SECRET: Joi.string().required(),
+  JWT_PREVIOUS_SECRET: Joi.string().optional(),
   JWT_EXPIRES_IN: Joi.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
   BCRYPT_SALT_ROUNDS: Joi.number().integer().min(4).max(31).default(10),
@@ -73,6 +74,9 @@ export const validationSchema = Joi.object({
   }),
   // Redis
   REDIS_URL: Joi.string().required(),
+  REDIS_MAX_RETRIES: Joi.number().integer().min(1).max(20).default(3),
+  REDIS_CONNECT_TIMEOUT: Joi.number().integer().default(10000),
+  REDIS_COMMAND_TIMEOUT: Joi.number().integer().default(5000),
   UPSTASH_REDIS_REST_URL: Joi.string().uri().optional(),
   UPSTASH_REDIS_REST_TOKEN: Joi.string().optional(),
 
@@ -154,4 +158,15 @@ export const validationSchema = Joi.object({
 
   // Pixabay
   PIXABAY_API_KEY: Joi.string().optional(),
+
+  // TTS (Google Text-to-Speech)
+  TTS_ENABLED: Joi.boolean().default(false),
+  TTS_PROVIDER: Joi.string()
+    .valid('google', 'amazon', 'azure')
+    .default('google'),
+  GOOGLE_TTS_API_KEY: Joi.string().optional().allow(''),
+  GOOGLE_TTS_LANGUAGE: Joi.string().default('en-US'),
+  GOOGLE_TTS_VOICE: Joi.string().default('en-US-Standard-B'),
+  GOOGLE_TTS_SPEED: Joi.number().min(0.25).max(4.0).default(1.0),
+  GOOGLE_TTS_TIMEOUT: Joi.number().integer().default(15000),
 });

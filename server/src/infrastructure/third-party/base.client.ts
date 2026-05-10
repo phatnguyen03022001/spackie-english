@@ -1,45 +1,8 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import type { LoggerService } from '@common/logger/logger.service';
-import { CircuitBreaker } from '../common/circuit-breaker';
-import { Logger } from '@nestjs/common';
-import { requestContext } from '../common/request-context';
-
-/**
- * Adapter that bridges LoggerService to the Logger interface expected by CircuitBreaker.
- * Extends NestJS Logger and delegates all calls to LoggerService.
- * The `any` parameters are required to match the original Logger interface.
- */
-class LoggerServiceAdapter extends Logger {
-  constructor(private readonly loggerService: LoggerService) {
-    super();
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  log(message: any, ..._optionalParams: any[]) {
-    this.loggerService.log(message);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  error(message: any, ..._optionalParams: any[]) {
-    this.loggerService.error(message);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  warn(message: any, ..._optionalParams: any[]) {
-    this.loggerService.warn(message);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  debug(message: any, ..._optionalParams: any[]) {
-    this.loggerService.debug(message);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  verbose(message: any, ..._optionalParams: any[]) {
-    this.loggerService.verbose(message);
-  }
-}
+import { CircuitBreaker } from '@infrastructure/common/circuit-breaker';
+import { requestContext } from '@common/context/request-context';
 
 export abstract class BaseApiClient {
   protected readonly client: AxiosInstance;
@@ -61,6 +24,7 @@ export abstract class BaseApiClient {
       timeout: timeoutMs,
     });
 
+    // Inject requestId từ context vào headers
     this.client.interceptors.request.use((config) => {
       const ctx = requestContext.getStore();
       if (ctx?.requestId) {
@@ -88,8 +52,7 @@ export abstract class BaseApiClient {
     );
 
     if (useCircuitBreaker && breakerName) {
-      const loggerAdapter = new LoggerServiceAdapter(logger);
-      this.circuitBreaker = new CircuitBreaker(breakerName, loggerAdapter);
+      this.circuitBreaker = new CircuitBreaker(breakerName, this.logger);
     }
   }
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BaseApiClient } from './base.client';
+import { BaseApiClient } from '@infrastructure/third-party/base.client';
 import { LoggerService } from '@common/logger/logger.service';
 
 export interface GeocodingResult {
@@ -47,9 +47,19 @@ export class MapTilerClient extends BaseApiClient {
     this.apiKey = apiKey;
   }
 
+  // async healthCheck(): Promise<boolean> {
+  //   try {
+  //     await this.get('/health');
+  //     return true;
+  //   } catch {
+  //     return false;
+  //   }
+  // }
+
   async healthCheck(): Promise<boolean> {
     try {
-      await this.get('/health');
+      // Gọi geocode với từ khóa 'test', limit=1 – chỉ dùng để kiểm tra kết nối
+      await this.geocode('test');
       return true;
     } catch {
       return false;

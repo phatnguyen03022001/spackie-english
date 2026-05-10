@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BaseApiClient } from './base.client';
+import { BaseApiClient } from '@infrastructure/third-party/base.client';
 import { LoggerService } from '@common/logger/logger.service';
+import { isAxiosError } from 'axios';
+import type { AxiosRequestConfig } from 'axios';
 
 export interface PixabayImage {
   id: number;
@@ -28,7 +30,6 @@ interface PixabayResponse {
 @Injectable()
 export class PixabayClient extends BaseApiClient {
   private readonly apiKey: string | undefined;
-  private readonly perPage: number;
 
   constructor(configService: ConfigService, logger: LoggerService) {
     const apiKey = configService.get<string>('pixabay.apiKey');
@@ -37,43 +38,47 @@ export class PixabayClient extends BaseApiClient {
     const timeout = configService.get<number>('pixabay.timeout') || 10000;
     super(apiUrl, timeout, logger, 2, 1000);
     this.apiKey = apiKey;
-    this.perPage = configService.get<number>('pixabay.perPage') || 3;
   }
 
-  async searchImages(query: string, perPage?: number): Promise<PixabayImage[]> {
+  async searchImages(query: string): Promise<PixabayImage[]> {
     if (!this.apiKey) {
       this.logger.warn('Pixabay API key not configured, skipping image search');
       return [];
     }
 
     try {
-      const response = await this.get<PixabayResponse>('', {
-        params: {
-          key: this.apiKey,
-          q: encodeURIComponent(query),
-          image_type: 'photo',
-          per_page: perPage || this.perPage,
-          safesearch: true,
-        },
-      });
+      // Không gửi per_page để tránh lỗi 400 không xác định
+      const params: Record<string, unknown> = {
+        key: this.apiKey,
+        q: query,
+        image_type: 'photo',
+        safesearch: true,
+      };
+
+      const config: AxiosRequestConfig = { params };
+      const response = await this.get<PixabayResponse>('', config);
       return response.hits || [];
-    } catch (error) {
-      this.logger.error({ error, query }, 'Pixabay search failed');
-      return []; // fallback: không throw lỗi, chỉ trả về mảng rỗng
+    } catch (error: unknown) {
+      if (isAxiosError(error) && error.response) {
+        this.logger.error(
+          `Pixabay error ${error.response.status}: ${JSON.stringify(error.response.data)}`,
+        );
+      } else {
+        this.logger.error(`Pixabay request failed: ${String(error)}`);
+      }
+      return [];
     }
   }
 
   async getFirstImageUrl(query: string): Promise<string | null> {
-    const images = await this.searchImages(query, 1);
+    const images = await this.searchImages(query);
     return images.length > 0 ? images[0].webformatURL : null;
   }
 
   async ping(): Promise<boolean> {
-    if (!this.apiKey) {
-      return false;
-    }
+    if (!this.apiKey) return false;
     try {
-      await this.searchImages('test', 1);
+      await this.searchImages('test');
       return true;
     } catch {
       return false;

@@ -12,8 +12,13 @@ export default tseslint.config(
       'dist',
       '.next',
       'coverage',
+      '__DOCS',
+      'prisma/generated',
       'eslint.config.mjs',
+      'jest.config.js',
+      'jest-e2e.config.js',
       'prisma.config.ts',
+      'test/jest.module-name-mapper.cjs',
     ],
   },
 
@@ -26,7 +31,7 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        project: './tsconfig.eslint.json',
         tsconfigRootDir: import.meta.dirname,
       },
 
@@ -45,7 +50,7 @@ export default tseslint.config(
       Typescript
       */
 
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-misused-promises': 'error',
 
@@ -57,6 +62,10 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': [
         'error',
         { prefer: 'type-imports' },
+      ],
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
 
       /*
@@ -76,5 +85,25 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    files: ['test/**/*.ts', 'test/**/*.js'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/consistent-type-imports': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_' },
+      ],
+    },
+  },
+  {
+    files: ['test/**/*.js'],
+    rules: { '@typescript-eslint/no-var-requires': 'off' },
   },
 );

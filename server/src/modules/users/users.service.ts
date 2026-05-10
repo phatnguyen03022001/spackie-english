@@ -1,22 +1,22 @@
 // src/modules/users/users.service.ts
 import { Injectable, HttpStatus, Inject } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { UsersRepository } from './users.repository';
-import { UserMapper } from './mappers/user.mapper';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { UserResponseDto } from './dto/user-response.dto';
-import { UserListQueryDto } from './dto/user-list-query.dto';
-import { AppException } from '../../common/filters/app-exception';
-import { ERROR_CODES } from '../../common/constants/error-codes.const';
-import { ICacheManager } from '../../common/interfaces/cache-manager.interface';
-import { LoggerService } from '../../common/logger/logger.service';
-import { hashPassword } from '../../common/utils/crypto.util';
-import { CacheKeyBuilder, CACHE_TTL } from '../../common/utils/cache.util';
-import { StorageService } from '../../infrastructure/storage/storage.service';
+import { UsersRepository } from '@modules/users/users.repository';
+import { UserMapper } from '@modules/users/mappers/user.mapper';
+import { CreateUserDto } from '@modules/users/dto/create-user.dto';
+import { UpdateUserDto } from '@modules/users/dto/update-user.dto';
+import { UserResponseDto } from '@modules/users/dto/user-response.dto';
+import { UserListQueryDto } from '@modules/users/dto/user-list-query.dto';
+import { BusinessException } from '@common/filters/business.exception';
+import { ERROR_CODES } from '@common/constants/error-codes.const';
+import { ICacheManager } from '@common/interfaces/cache-manager.interface';
+import { LoggerService } from '@common/logger/logger.service';
+import { hashPassword } from '@common/utils/crypto.util';
+import { CacheKeyBuilder, CACHE_TTL } from '@common/utils/cache.util';
+import { StorageService } from '@infrastructure/storage/storage.service';
 import { User } from '@prisma/client';
-import { RequestUser } from '../../common/interfaces/request-user.interface';
-import { USER_EVENTS } from '../../common/constants/events.constants';
+import { RequestUser } from '@common/interfaces/request-user.interface';
+import { USER_EVENTS } from '@common/constants/events.constants';
 
 @Injectable()
 export class UsersService {
@@ -36,11 +36,12 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    const { email, username, password, displayName, avatarUrl } = createUserDto;
+    const email = createUserDto.email.trim().toLowerCase();
+    const { username, password, displayName } = createUserDto;
 
-    const existingEmail = await this.usersRepository.findByEmail(email);
+    const existingEmail = await this.usersRepository.findByEmail(email, true);
     if (existingEmail) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.CONFLICT,
         ERROR_CODES.USER_EMAIL_DUPLICATE,
         'Email already exists',
@@ -49,7 +50,7 @@ export class UsersService {
     const existingUsername =
       await this.usersRepository.findByUsername(username);
     if (existingUsername) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.CONFLICT,
         'USER_USERNAME_DUPLICATE',
         'Username already taken',
@@ -66,7 +67,6 @@ export class UsersService {
       username,
       passwordHash,
       displayName,
-      avatarUrl,
     });
 
     await this.invalidateListCache();
@@ -76,6 +76,7 @@ export class UsersService {
     this.emitter.emit(USER_EVENTS.CREATED, {
       userId: user.id,
       email: user.email,
+      displayName: user.displayName,
     });
 
     return dto;
@@ -84,12 +85,12 @@ export class UsersService {
   async findAll(
     query: UserListQueryDto,
   ): Promise<{ data: UserResponseDto[]; total: number }> {
-    const filters: Record<string, string | number> = {};
-    if (query.search !== undefined) filters.search = query.search;
-    if (query.role !== undefined) filters.role = query.role;
-    if (query.status !== undefined) filters.status = query.status;
-    if (query.sortBy !== undefined) filters.sortBy = query.sortBy;
-    if (query.sortOrder !== undefined) filters.sortOrder = query.sortOrder;
+    const filters = {
+      ...(query.search && { search: query.search }),
+      ...(query.role && { role: query.role }),
+      ...(query.status && { status: query.status }),
+      sort: query.sort,
+    };
 
     const cacheKey = CacheKeyBuilder.list(
       this.domain,
@@ -118,7 +119,7 @@ export class UsersService {
 
     const user = await this.usersRepository.findById(id);
     if (!user) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.NOT_FOUND,
         ERROR_CODES.USER_NOT_FOUND,
         'User not found',
@@ -130,7 +131,8 @@ export class UsersService {
     return dto;
   }
 
-  async findByEmail(email: string): Promise<User | null> {
+  async findByEmail(emailInput: string): Promise<User | null> {
+    const email = emailInput.trim().toLowerCase();
     const cacheKey = CacheKeyBuilder.resource(
       this.domain,
       'user_by_email',
@@ -168,7 +170,7 @@ export class UsersService {
     currentUser: RequestUser,
   ): Promise<UserResponseDto> {
     if (currentUser.role !== 'ADMIN' && currentUser.id !== id) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.FORBIDDEN,
         ERROR_CODES.AUTH_INSUFFICIENT_PERMISSIONS,
         'You can only update your own profile',
@@ -177,7 +179,7 @@ export class UsersService {
 
     const user = await this.usersRepository.findById(id);
     if (!user) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.NOT_FOUND,
         ERROR_CODES.USER_NOT_FOUND,
         'User not found',
@@ -185,7 +187,7 @@ export class UsersService {
     }
 
     if (user.isBanned && currentUser.role !== 'ADMIN') {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.FORBIDDEN,
         'USER_ACCOUNT_BANNED',
         'Your account has been banned. Cannot update profile.',
@@ -210,7 +212,7 @@ export class UsersService {
 
   async softDelete(id: string, currentUser: RequestUser): Promise<void> {
     if (currentUser.role !== 'ADMIN' && currentUser.id !== id) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.FORBIDDEN,
         ERROR_CODES.AUTH_INSUFFICIENT_PERMISSIONS,
         'You can only delete your own account',
@@ -219,7 +221,7 @@ export class UsersService {
 
     const user = await this.usersRepository.findById(id);
     if (!user) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.NOT_FOUND,
         ERROR_CODES.USER_NOT_FOUND,
         'User not found',
@@ -227,7 +229,7 @@ export class UsersService {
     }
 
     if (user.isBanned && currentUser.role !== 'ADMIN') {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.FORBIDDEN,
         'USER_ACCOUNT_BANNED',
         'Banned accounts cannot be deleted. Contact support.',
@@ -246,7 +248,7 @@ export class UsersService {
   async hardDelete(id: string): Promise<void> {
     const user = await this.usersRepository.findById(id, true);
     if (!user) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.NOT_FOUND,
         ERROR_CODES.USER_NOT_FOUND,
         'User not found',
@@ -264,7 +266,7 @@ export class UsersService {
   async ban(id: string): Promise<UserResponseDto> {
     const user = await this.usersRepository.findById(id);
     if (!user) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.NOT_FOUND,
         ERROR_CODES.USER_NOT_FOUND,
         'User not found',
@@ -283,7 +285,7 @@ export class UsersService {
   async unban(id: string): Promise<UserResponseDto> {
     const user = await this.usersRepository.findById(id);
     if (!user) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.NOT_FOUND,
         ERROR_CODES.USER_NOT_FOUND,
         'User not found',
@@ -329,6 +331,9 @@ export class UsersService {
     return this.userMapper.toResponseDto(updated);
   }
 
+  async findByIdForAuth(id: string): Promise<User | null> {
+    return this.usersRepository.findById(id);
+  }
   private extractPublicIdFromUrl(url: string): string | null {
     const match = url.match(/\/upload\/v\d+\/(.+)\.[a-z]+$/);
     return match ? match[1] : null;

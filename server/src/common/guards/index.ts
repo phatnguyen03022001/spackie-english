@@ -1,4 +1,4 @@
 // src/common/guards/index.ts
-export { JwtAuthGuard } from './jwt-auth.guard';
-export { RolesGuard } from './roles.guard';
-export { CustomThrottlerGuard } from './throttler.guard';
+export { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
+export { RolesGuard } from '@common/guards/roles.guard';
+export { CustomThrottlerGuard } from '@common/guards/throttler.guard';

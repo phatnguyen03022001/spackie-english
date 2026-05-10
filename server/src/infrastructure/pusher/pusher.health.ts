@@ -3,7 +3,7 @@ import {
   HealthIndicatorService,
   HealthIndicatorResult,
 } from '@nestjs/terminus';
-import { PusherService } from './pusher.service';
+import { PusherService } from '@infrastructure/pusher/pusher.service';
 
 @Injectable()
 export class PusherHealthIndicator {

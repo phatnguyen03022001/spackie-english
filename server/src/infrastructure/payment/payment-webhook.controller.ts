@@ -7,9 +7,9 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import { Public } from '@common/decorators/public.decorator';
-import { PaymentService } from './payment.service';
+import { PaymentService } from '@infrastructure/payment/payment.service';
 import { LoggerService } from '@common/logger/logger.service';
-import { RedisService } from '../redis/redis.service';
+import { RedisService } from '@infrastructure/redis/redis.service';
 
 interface PayOSWebhookBody {
   code: string;

@@ -7,6 +7,9 @@ import { StorageHealthIndicator } from '@infrastructure/storage/storage.health';
 import { PaymentHealthIndicator } from '@infrastructure/payment/payment.health';
 import { DeepSeekHealthIndicator } from '@infrastructure/third-party/deepseek.health';
 import { MapTilerHealthIndicator } from '@infrastructure/third-party/maptiler.health';
+import { PrismaHealthIndicator } from '@database/prisma.health';
+import { Public } from '@common/decorators';
+import { SkipTransform } from '@common/decorators/skip-transform.decorator';
 
 @Controller('health')
 export class HealthController {
@@ -19,10 +22,13 @@ export class HealthController {
     private payment: PaymentHealthIndicator,
     private deepseek: DeepSeekHealthIndicator,
     private maptiler: MapTilerHealthIndicator,
+    private prisma: PrismaHealthIndicator,
   ) {}
 
   @Get()
   @HealthCheck()
+  @Public()
+  @SkipTransform()
   check() {
     return this.health.check([
       () => this.redis.isHealthy('redis'),
@@ -32,6 +38,7 @@ export class HealthController {
       () => this.payment.isHealthy('payment'),
       () => this.deepseek.isHealthy('deepseek'),
       () => this.maptiler.isHealthy('maptiler'),
+      () => this.prisma.isHealthy('database'),
     ]);
   }
 }

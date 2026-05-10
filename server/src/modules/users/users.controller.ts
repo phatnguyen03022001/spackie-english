@@ -13,28 +13,31 @@ import {
   UploadedFile,
   ParseFilePipeBuilder,
   HttpStatus,
+  HttpCode,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { UsersService } from './users.service';
-import { UpdateAvatarUseCase } from './use-cases/update-avatar.use-case';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { UserListQueryDto } from './dto/user-list-query.dto';
-import { UserResponseDto } from './dto/user-response.dto';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Public } from '../../common/decorators/public.decorator';
-import { CacheTTL } from '../../common/decorators/cache-ttl.decorator';
-import { ApiPagination } from '../../common/decorators/api-pagination.decorator';
-import { RequestUser } from '../../common/interfaces/request-user.interface';
-import { PaginationResponseDto } from '../../common/dto/pagination-response.dto';
-import { SuccessResponseDto } from '../../common/dto/success-response.dto';
-import { CACHE_TTL } from '../../common/utils/cache.util';
-import { AppException } from '../../common/filters/app-exception';
-import { ERROR_CODES } from '../../common/constants/error-codes.const';
+import { UsersService } from '@modules/users/users.service';
+import { UpdateAvatarUseCase } from '@modules/users/use-cases/update-avatar.use-case';
+import { CreateUserDto } from '@modules/users/dto/create-user.dto';
+import { UpdateUserDto } from '@modules/users/dto/update-user.dto';
+import { UserListQueryDto } from '@modules/users/dto/user-list-query.dto';
+import { UserResponseDto } from '@modules/users/dto/user-response.dto';
+import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
+import { RolesGuard } from '@common/guards/roles.guard';
+import { Roles } from '@common/decorators/roles.decorator';
+import { CurrentUser } from '@common/decorators/current-user.decorator';
+import { Public } from '@common/decorators/public.decorator';
+import { CacheTTL } from '@common/decorators/cache-ttl.decorator';
+import { ApiPagination } from '@common/decorators/api-pagination.decorator';
+import { RequestUser } from '@common/interfaces/request-user.interface';
+import { PaginationResponseDto } from '@common/dto/pagination-response.dto';
+import { SuccessResponseDto } from '@common/dto/success-response.dto';
+import { CACHE_TTL } from '@common/utils/cache.util';
+import { BusinessException } from '@common/filters/business.exception';
+import { ERROR_CODES } from '@common/constants/error-codes.const';
+
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('Users')
 @ApiBearerAuth() // Thêm bearer auth cho Swagger
@@ -48,6 +51,7 @@ export class UsersController {
 
   @Public()
   @Post()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async create(
     @Body() createUserDto: CreateUserDto,
   ): Promise<SuccessResponseDto<UserResponseDto>> {
@@ -80,7 +84,7 @@ export class UsersController {
     @CurrentUser() currentUser: RequestUser,
   ): Promise<SuccessResponseDto<UserResponseDto>> {
     if (currentUser.role !== 'ADMIN' && currentUser.id !== id) {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.FORBIDDEN,
         ERROR_CODES.AUTH_INSUFFICIENT_PERMISSIONS,
         'Access denied',
@@ -91,6 +95,7 @@ export class UsersController {
   }
 
   @Patch('me')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async updateProfile(
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() user: RequestUser,
@@ -105,10 +110,14 @@ export class UsersController {
 
   @Patch('me/avatar')
   @UseInterceptors(FileInterceptor('file'))
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async updateAvatar(
     @UploadedFile(
       new ParseFilePipeBuilder()
-        .addFileTypeValidator({ fileType: /(jpeg|png|webp)/ })
+        .addFileTypeValidator({
+          fileType: /^image\/(jpeg|png|webp)$/,
+          fallbackToMimetype: true,
+        })
         .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
         .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
     )
@@ -129,6 +138,7 @@ export class UsersController {
 
   @Post(':id/ban')
   @Roles('ADMIN')
+  @HttpCode(HttpStatus.OK)
   async banUser(
     @Param('id') id: string,
   ): Promise<SuccessResponseDto<UserResponseDto>> {
@@ -138,6 +148,7 @@ export class UsersController {
 
   @Post(':id/unban')
   @Roles('ADMIN')
+  @HttpCode(HttpStatus.OK)
   async unbanUser(
     @Param('id') id: string,
   ): Promise<SuccessResponseDto<UserResponseDto>> {

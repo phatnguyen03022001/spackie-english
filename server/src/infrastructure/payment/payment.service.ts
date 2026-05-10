@@ -3,7 +3,7 @@ import {
   PaymentProvider,
   CreatePaymentParams,
   PaymentResult,
-} from './payment.provider';
+} from '@infrastructure/payment/payment.provider';
 
 @Injectable()
 export class PaymentService {
@@ -15,7 +15,7 @@ export class PaymentService {
     return this.provider.createPayment(params);
   }
 
-  verifyWebhook(signature: string, body: any): boolean {
+  verifyWebhook(signature: string, body: unknown): boolean {
     return this.provider.verifyWebhook(signature, body);
   }
 
@@ -23,7 +23,7 @@ export class PaymentService {
     return this.provider.ping();
   }
 
-  async getPaymentStatus(orderId: string): Promise<any> {
+  async getPaymentStatus(orderId: string): Promise<unknown> {
     return this.provider.getPaymentStatus(orderId);
   }
 }

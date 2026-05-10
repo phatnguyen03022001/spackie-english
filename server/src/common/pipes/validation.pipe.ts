@@ -1,7 +1,7 @@
 // src/common/pipes/validation.pipe.ts
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import type { ValidationError } from 'class-validator';
-import { ERROR_CODES } from '../constants/error-codes.const';
+import { ERROR_CODES } from '@common/constants/error-codes.const';
 
 interface FormattedValidationError {
   code: string;

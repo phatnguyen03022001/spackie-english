@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { Reflector } from '@nestjs/core';
+import { SKIP_TRANSFORM_KEY } from '@common/decorators/skip-transform.decorator';
 
 export interface SuccessResponse<T> {
   success: true;
@@ -52,7 +54,7 @@ function hasMessage(value: unknown): value is { message: string } {
     typeof value === 'object' &&
     'message' in value &&
     typeof (value as { message: unknown }).message === 'string' &&
-    !('data' in value) // Only treat as message-only if there's no data field
+    !('data' in value)
   );
 }
 
@@ -68,15 +70,34 @@ function hasDataAndMessage(
   );
 }
 
+function isSuccessResponseDtoShape(
+  value: unknown,
+): value is { success: true; data: unknown; message?: string; meta?: unknown } {
+  if (!value || typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  return obj.success === true && 'data' in obj;
+}
+
 @Injectable()
 export class TransformInterceptor<T> implements NestInterceptor<
   T,
   SuccessResponse<T>
 > {
+  constructor(private readonly reflector: Reflector) {}
+
   intercept(
-    _context: ExecutionContext,
+    context: ExecutionContext,
     next: CallHandler,
   ): Observable<SuccessResponse<T>> {
+    // Check if this endpoint should skip transformation
+    const skipTransform = this.reflector.getAllAndOverride<boolean>(
+      SKIP_TRANSFORM_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (skipTransform) {
+      return next.handle() as Observable<SuccessResponse<T>>;
+    }
+
     return next.handle().pipe(
       map((data: unknown) => {
         if (isPaginatedData<T>(data)) {
@@ -95,6 +116,23 @@ export class TransformInterceptor<T> implements NestInterceptor<
             data: data.data as T,
             message: data.message,
           };
+        }
+
+        if (isSuccessResponseDtoShape(data)) {
+          const response: SuccessResponse<T> = {
+            success: true,
+            data: data.data as T,
+          };
+
+          if ('meta' in data && data.meta) {
+            response.meta = data.meta as SuccessResponse<T>['meta'];
+          }
+
+          if ('message' in data && typeof data.message === 'string') {
+            response.message = data.message;
+          }
+
+          return response;
         }
 
         if (hasMessage(data)) {

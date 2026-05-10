@@ -1,5 +1,5 @@
 // src/modules/users/dto/update-user.dto.ts
-import { IsOptional, IsString, MaxLength, IsUrl } from 'class-validator';
+import { IsString, MaxLength, IsOptional } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateUserDto {
@@ -8,9 +8,4 @@ export class UpdateUserDto {
   @IsString()
   @MaxLength(100)
   displayName?: string;
-
-  @ApiPropertyOptional({ example: 'https://example.com/new-avatar.jpg' })
-  @IsOptional()
-  @IsUrl()
-  avatarUrl?: string;
 }

@@ -8,9 +8,9 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import type { Role } from '@prisma/client';
-import { ROLES_KEY } from '../decorators/roles.decorator';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import type { RequestUser } from '../interfaces/request-user.interface';
+import { ROLES_KEY } from '@common/decorators/roles.decorator';
+import { IS_PUBLIC_KEY } from '@common/decorators/public.decorator';
+import type { RequestUser } from '@common/interfaces/request-user.interface';
 
 type RequestWithUser = Request & {
   user?: RequestUser;

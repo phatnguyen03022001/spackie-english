@@ -3,7 +3,7 @@ import {
   HealthIndicatorService,
   HealthIndicatorResult,
 } from '@nestjs/terminus';
-import { MapTilerClient } from './maptiler.client';
+import { MapTilerClient } from '@infrastructure/third-party/maptiler.client';
 
 @Injectable()
 export class MapTilerHealthIndicator {

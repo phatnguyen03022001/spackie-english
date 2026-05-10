@@ -1,23 +1,26 @@
-import './instrument';
+import '@/instrument';
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
-import { RequestMethod } from '@nestjs/common';
+import { RequestMethod, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import compression from 'compression';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 
-import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { GlobalValidationPipe } from './common/pipes/validation.pipe';
-import { LoggerService } from './common/logger/logger.service';
+import { AppModule } from '@/app.module';
+import { GlobalValidationPipe } from '@/common/pipes/validation.pipe';
+import { requestIdMiddleware } from '@/common/middleware/request-id.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
     logger: ['error', 'warn'],
   });
+
+  // 1. RequestId middleware (phải đầu tiên để logging có requestId)
+  app.use(requestIdMiddleware);
 
   app.enableShutdownHooks();
   app.set('trust proxy', 1);
@@ -26,17 +29,22 @@ async function bootstrap() {
   app.useLogger(logger);
   app.useGlobalInterceptors(new LoggerErrorInterceptor());
 
-  const loggerService = await app.resolve(LoggerService);
-  app.useGlobalFilters(new HttpExceptionFilter(loggerService));
   app.useGlobalPipes(GlobalValidationPipe);
 
   const configService = app.get(ConfigService);
 
   app.use(helmet());
+  app.use(compression());
 
   const prefix = configService.get<string>('app.prefix') ?? 'api';
   app.setGlobalPrefix(prefix, {
     exclude: [{ path: 'health', method: RequestMethod.GET }],
+  });
+
+  // API Versioning (URI-based, default version 1)
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
   });
 
   // Swagger
@@ -54,11 +62,8 @@ async function bootstrap() {
       .setVersion(configService.get<string>('app.swagger.version') ?? '1.0')
       .addBearerAuth()
       .build();
-
     const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup(swaggerPath, app, document, {
-      useGlobalPrefix: true,
-    });
+    SwaggerModule.setup(swaggerPath, app, document, { useGlobalPrefix: true });
   }
 
   // CORS
@@ -69,25 +74,14 @@ async function bootstrap() {
     'app.frontendStagingUrl',
   );
   const vercelTeamSlug = configService.get<string>('app.vercelTeamSlug');
-
-  const pusherAppId = configService.get<string>('pusher.appId');
-  const pusherKey = configService.get<string>('pusher.key');
-  const pusherSecret = configService.get<string>('pusher.secret');
-
-  if (pusherAppId && pusherKey && pusherSecret) {
-    logger.log('✅ Pusher configured for realtime events');
-  } else {
-    logger.warn('❌ Pusher credentials missing, realtime features disabled');
-  }
+  const isDevelopment = configService.get<string>('app.env') === 'development';
 
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      const allowed = [
-        ...allowedOrigins,
-        frontendUrl,
-        frontendStagingUrl,
-      ].filter(Boolean);
+      const allowed = [allowedOrigins, frontendUrl, frontendStagingUrl]
+        .flat()
+        .filter(Boolean);
       if (allowed.includes(origin)) return callback(null, true);
       if (
         vercelTeamSlug &&
@@ -95,16 +89,23 @@ async function bootstrap() {
       ) {
         return callback(null, true);
       }
-      if (
-        process.env.NODE_ENV === 'development' &&
-        origin.startsWith('http://localhost')
-      ) {
+      if (isDevelopment && origin.startsWith('http://localhost')) {
         return callback(null, true);
       }
       callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
     credentials: true,
   });
+
+  // Pusher check
+  const pusherAppId = configService.get<string>('pusher.appId');
+  const pusherKey = configService.get<string>('pusher.key');
+  const pusherSecret = configService.get<string>('pusher.secret');
+  if (pusherAppId && pusherKey && pusherSecret) {
+    logger.log('✅ Pusher configured for realtime events');
+  } else {
+    logger.warn('❌ Pusher credentials missing, realtime features disabled');
+  }
 
   const port = configService.get<number>('app.port') ?? 8000;
   await app.listen(port);

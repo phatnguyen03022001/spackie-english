@@ -2,8 +2,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "baseUrl": "./"
+    "declaration": false,
+    "noEmit": false
   },
-  "include": ["src/**/*", "prisma/generated/**/*"], 
+  "include": ["src/**/*.ts", "prisma/generated/**/*.ts", "types/**/*.d.ts"],
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
 }

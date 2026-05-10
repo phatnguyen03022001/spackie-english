@@ -3,7 +3,7 @@ import {
   HealthIndicatorService,
   HealthIndicatorResult,
 } from '@nestjs/terminus';
-import { MailService } from './mail.service';
+import { MailService } from '@infrastructure/mail/mail.service';
 
 @Injectable()
 export class MailHealthIndicator {

@@ -36,13 +36,11 @@ export class UserListQueryDto {
   @IsIn(['active', 'banned', 'deleted'])
   status?: string;
 
-  @ApiPropertyOptional({ default: 'createdAt' })
+  @ApiPropertyOptional({
+    example: 'createdAt:desc',
+    description: 'Sort field and order (format: field:asc or field:desc)',
+  })
   @IsOptional()
   @IsString()
-  sortBy: string = 'createdAt';
-
-  @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'desc' })
-  @IsOptional()
-  @IsIn(['asc', 'desc'])
-  sortOrder: 'asc' | 'desc' = 'desc';
+  sort: string = 'createdAt:desc';
 }

@@ -3,7 +3,7 @@ import {
   HealthIndicatorService,
   HealthIndicatorResult,
 } from '@nestjs/terminus';
-import { PaymentService } from './payment.service';
+import { PaymentService } from '@infrastructure/payment/payment.service';
 
 @Injectable()
 export class PaymentHealthIndicator {

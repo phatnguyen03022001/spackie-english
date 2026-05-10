@@ -11,7 +11,7 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
-import { LoggerService } from '../logger/logger.service';
+import { LoggerService } from '@common/logger/logger.service';
 
 // Extend Request type to include requestId and user
 interface RequestWithId extends Request {
@@ -27,7 +27,7 @@ export class LoggingInterceptor implements NestInterceptor {
     this.loggerService.setContext('HTTP');
   }
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest<RequestWithId>();
     const res = context.switchToHttp().getResponse<Response>();
 

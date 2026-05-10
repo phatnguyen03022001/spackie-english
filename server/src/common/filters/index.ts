@@ -1,2 +1,2 @@
 // src/common/filters/index.ts
-export { HttpExceptionFilter } from './http-exception.filter';
+export { HttpExceptionFilter } from '@common/filters/http-exception.filter';

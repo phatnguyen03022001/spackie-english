@@ -1,11 +1,11 @@
 import { Module, Global } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerService } from '@common/logger/logger.service';
-import { PaymentService } from './payment.service';
-import { PayosProvider } from './payos.provider';
-import { PaymentWebhookController } from './payment-webhook.controller';
-import { PaymentHealthIndicator } from './payment.health';
-import { RedisModule } from '../redis/redis.module';
+import { PaymentService } from '@infrastructure/payment/payment.service';
+import { PayosProvider } from '@infrastructure/payment/payos.provider';
+import { PaymentWebhookController } from '@infrastructure/payment/payment-webhook.controller';
+import { PaymentHealthIndicator } from '@infrastructure/payment/payment.health';
+import { RedisModule } from '@infrastructure/redis/redis.module';
 import { TerminusModule } from '@nestjs/terminus';
 
 @Global()

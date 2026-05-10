@@ -10,10 +10,10 @@ import {
 import { Observable, of, throwError } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
 import { Request, Response } from 'express';
-import { ICacheManager } from '../interfaces/cache-manager.interface';
+import { ICacheManager } from '@common/interfaces/cache-manager.interface';
 import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
-import { LoggerService } from '../logger/logger.service';
+import { LoggerService } from '@common/logger/logger.service';
 
 type RequestWithUser = Request & {
   user?: {

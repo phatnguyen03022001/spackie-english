@@ -13,11 +13,24 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   ) {
     const url = this.configService.get<string>('redis.url');
     if (!url) throw new Error('Redis URL is required');
+    const connectTimeout = parseInt(
+      this.configService.get<string>('REDIS_CONNECT_TIMEOUT') || '10000',
+      10,
+    );
+    const commandTimeout = parseInt(
+      this.configService.get<string>('REDIS_COMMAND_TIMEOUT') || '5000',
+      10,
+    );
     this.client = new Redis(url, {
       maxRetriesPerRequest: 3,
-      enableReadyCheck: true,
+      connectTimeout,
+      commandTimeout,
+      enableReadyCheck: false,
       lazyConnect: true,
-      retryStrategy: (times) => Math.min(times * 50, 2000),
+      retryStrategy: (times) => {
+        if (times > 3) return null; // stop retrying after 3 attempts
+        return Math.min(times * 200, 2000);
+      },
     });
     this.logger.setContext(RedisService.name);
   }

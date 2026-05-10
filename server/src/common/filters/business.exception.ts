@@ -1,7 +1,7 @@
 import { HttpException } from '@nestjs/common';
 import type { HttpStatus } from '@nestjs/common';
 
-export class AppException extends HttpException {
+export class BusinessException extends HttpException {
   constructor(
     status: HttpStatus,
     code: string,
@@ -18,3 +18,5 @@ export class AppException extends HttpException {
     );
   }
 }
+
+export class AppException extends BusinessException {}

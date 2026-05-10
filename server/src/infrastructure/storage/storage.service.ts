@@ -3,7 +3,7 @@ import {
   StorageProvider,
   UploadOptions,
   UploadResult,
-} from './storage.provider';
+} from '@infrastructure/storage/storage.provider';
 
 @Injectable()
 export class StorageService {

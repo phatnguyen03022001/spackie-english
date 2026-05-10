@@ -28,8 +28,8 @@ export function getPaginationOffset(params: PaginationParams): number {
 /**
  * Calculate total pages
  */
-export function getTotalPages(totalItems: number, limit: number): number {
-  return Math.ceil(totalItems / Math.max(1, limit));
+export function getTotalPages(total: number, limit: number): number {
+  return Math.ceil(total / Math.max(1, limit));
 }
 
 /**

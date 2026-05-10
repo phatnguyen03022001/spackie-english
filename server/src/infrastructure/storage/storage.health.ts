@@ -3,7 +3,7 @@ import {
   HealthIndicatorService,
   HealthIndicatorResult,
 } from '@nestjs/terminus';
-import { StorageService } from './storage.service';
+import { StorageService } from '@infrastructure/storage/storage.service';
 
 @Injectable()
 export class StorageHealthIndicator {

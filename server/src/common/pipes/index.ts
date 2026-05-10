@@ -1,3 +1,3 @@
 // src/common/pipes/index.ts
-export { GlobalValidationPipe } from './validation.pipe';
-export { ParseObjectIdPipe } from './parse-object-id.pipe';
+export { GlobalValidationPipe } from '@common/pipes/validation.pipe';
+export { ParseObjectIdPipe } from '@common/pipes/parse-object-id.pipe';

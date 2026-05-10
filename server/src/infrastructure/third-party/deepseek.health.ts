@@ -3,7 +3,7 @@ import {
   HealthIndicatorService,
   HealthIndicatorResult,
 } from '@nestjs/terminus';
-import { DeepSeekClient } from './deepseek.client';
+import { DeepSeekClient } from '@infrastructure/third-party/deepseek.client';
 
 @Injectable()
 export class DeepSeekHealthIndicator {

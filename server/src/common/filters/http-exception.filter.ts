@@ -6,15 +6,21 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Injectable,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { LoggerService } from '../logger/logger.service';
-import { ErrorResponseDto } from '../dto/error-response.dto';
+import { ConfigService } from '@nestjs/config';
+import { LoggerService } from '@common/logger/logger.service';
+import { ErrorResponseDto } from '@common/dto/error-response.dto';
 import { ERROR_CODES } from '@common/constants';
 
 @Catch(HttpException, Error)
+@Injectable()
 export class HttpExceptionFilter implements ExceptionFilter {
-  constructor(private readonly logger: LoggerService) {
+  constructor(
+    private readonly logger: LoggerService,
+    private readonly configService: ConfigService,
+  ) {
     this.logger.setContext(HttpExceptionFilter.name);
   }
 
@@ -101,7 +107,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     // attach stack only in dev
-    if (process.env.NODE_ENV !== 'production' && stack) {
+    const isProduction =
+      this.configService.get<string>('app.env') === 'production';
+    if (!isProduction && stack) {
       details = {
         ...(typeof details === 'object' && details ? details : {}),
         stack,

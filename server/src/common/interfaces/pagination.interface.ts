@@ -3,7 +3,7 @@
 export interface PaginationMeta {
   readonly page: number;
   readonly limit: number;
-  readonly totalItems: number;
+  readonly total: number;
   readonly totalPages: number;
 }
 

@@ -3,7 +3,7 @@ import {
   HealthIndicatorService,
   HealthIndicatorResult,
 } from '@nestjs/terminus';
-import { PixabayClient } from './pixabay.client';
+import { PixabayClient } from '@infrastructure/third-party/pixabay.client';
 
 @Injectable()
 export class PixabayHealthIndicator {

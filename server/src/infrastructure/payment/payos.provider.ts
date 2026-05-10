@@ -1,12 +1,16 @@
+import { isAxiosError } from 'axios';
 import crypto from 'crypto';
 import type {
   PaymentProvider,
   CreatePaymentParams,
   PaymentResult,
-} from './payment.provider';
+} from '@infrastructure/payment/payment.provider';
 import type { LoggerService } from '@common/logger/logger.service';
-import { PayosClient, type PayOSCreatePaymentResponse } from './payos.client';
-import { AppException } from '@common/filters/app-exception';
+import {
+  PayosClient,
+  type PayOSCreatePaymentResponse,
+} from '@infrastructure/payment/payos.client';
+import { BusinessException } from '@/common/filters/business.exception';
 import { HttpStatus } from '@nestjs/common';
 
 /**
@@ -79,15 +83,15 @@ export class PayosProvider implements PaymentProvider {
           payosPaymentId: response.data.paymentLinkId,
         };
       }
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.BAD_GATEWAY,
         'PAYMENT_CREATE_FAILED',
         `PayOS error: ${response.desc}`,
       );
     } catch (error) {
       this.logger.error({ error, params }, 'PayOS create payment failed');
-      if (error instanceof AppException) throw error;
-      throw new AppException(
+      if (error instanceof BusinessException) throw error;
+      throw new BusinessException(
         HttpStatus.INTERNAL_SERVER_ERROR,
         'PAYMENT_CREATE_FAILED',
         'Payment creation failed',
@@ -97,12 +101,22 @@ export class PayosProvider implements PaymentProvider {
 
   async ping(): Promise<void> {
     try {
-      await this.client.getPaymentRequests({ limit: 1 });
-    } catch {
-      throw new AppException(
+      // We use a dummy ID '0'. If the keys are correct, PayOS will return 404 (Order not found).
+      // If the keys are wrong, it will return 401 Unauthorized.
+      await this.client.getPaymentRequest('0');
+    } catch (error: unknown) {
+      // If we get a 404, it means we successfully reached the PayOS API and auth passed.
+      if (isAxiosError(error) && error.response?.status === 404) {
+        return;
+      }
+
+      this.logger.error({ err: error }, 'PayOS ping failed');
+      const message =
+        error instanceof Error ? error.message : 'Cannot reach PayOS API';
+      throw new BusinessException(
         HttpStatus.SERVICE_UNAVAILABLE,
         'PAYMENT_PING_FAILED',
-        'Cannot reach PayOS API',
+        `PayOS ping failed: ${message}`,
       );
     }
   }
@@ -117,7 +131,7 @@ export class PayosProvider implements PaymentProvider {
       const response = await this.client.getPaymentRequest(orderId);
       return response;
     } catch {
-      throw new AppException(
+      throw new BusinessException(
         HttpStatus.BAD_GATEWAY,
         'PAYMENT_STATUS_FAILED',
         `Failed to get payment status for order ${orderId}`,

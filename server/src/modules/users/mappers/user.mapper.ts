@@ -1,7 +1,7 @@
 // src/modules/users/mappers/user.mapper.ts
 import { Injectable } from '@nestjs/common';
 import { User } from '@prisma/client';
-import { UserResponseDto } from '../dto/user-response.dto';
+import { UserResponseDto } from '@modules/users/dto/user-response.dto';
 import { plainToInstance } from 'class-transformer';
 
 @Injectable()

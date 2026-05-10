@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { RedisService } from './redis.service';
+import { RedisService } from '@infrastructure/redis/redis.service';
 import { randomBytes } from 'crypto';
 
 @Injectable()

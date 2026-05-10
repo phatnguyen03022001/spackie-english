@@ -5,7 +5,7 @@ import { trace, context } from '@opentelemetry/api';
 import type pino from 'pino';
 import crypto from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'http';
-import { safeSerialize } from '../utils/serialize.util';
+import { safeSerialize } from '@common/utils/serialize.util';
 
 type LogLevel =
   | 'trace'
@@ -22,6 +22,11 @@ const resolveLogLevel = (res: ServerResponse, err?: Error): LogLevel => {
   return 'info';
 };
 
+interface TransportTarget {
+  target: string;
+  options?: Record<string, unknown>;
+}
+
 export const loggerOptions: LoggerModuleAsyncParams = {
   inject: [ConfigService],
   useFactory: (configService: ConfigService): Params => {
@@ -33,6 +38,52 @@ export const loggerOptions: LoggerModuleAsyncParams = {
       configService.get<boolean>('logger.logRequestBody') ?? !isProduction;
     const rawRedactPaths = configService.get<string[]>('logger.redactPaths');
     const redactPaths = Array.isArray(rawRedactPaths) ? rawRedactPaths : [];
+
+    // Kiểm tra xem có cấu hình OpenTelemetry OTLP endpoint hay không
+    const otlpEndpoint = configService.get<string>(
+      'otel.exporter.otlp.endpoint',
+    );
+    const useOtlp = isProduction && !!otlpEndpoint;
+
+    // Transport cho production: luôn ghi log ra file (rotate hàng ngày)
+    // Nếu có OTLP endpoint, thêm transport thứ hai để gửi log qua OpenTelemetry
+    const transports: TransportTarget[] = [
+      {
+        target: 'pino-daily-rotate-file',
+        options: {
+          filename: 'logs/application-%DATE%.log',
+          datePattern: 'YYYY-MM-DD',
+          maxSize: '20m', // dung lượng tối đa mỗi file
+          maxFiles: '14d', // giữ log 14 ngày
+          mkdir: true,
+          compress: true, // nén file cũ
+        },
+      },
+    ];
+
+    if (useOtlp) {
+      transports.push({
+        target: 'pino-opentelemetry-transport',
+        options: {
+          // Có thể thêm cấu hình nếu cần (service name, ...)
+        },
+      });
+    }
+
+    // Dev environment: chỉ dùng pretty print
+    const transport = !isProduction
+      ? {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            levelFirst: true,
+            translateTime: 'SYS:standard',
+            ignore: 'pid,hostname',
+          },
+        }
+      : {
+          targets: transports,
+        };
 
     return {
       pinoHttp: {
@@ -87,19 +138,7 @@ export const loggerOptions: LoggerModuleAsyncParams = {
             };
           },
         },
-        transport: !isProduction
-          ? {
-              target: 'pino-pretty',
-              options: {
-                colorize: true,
-                levelFirst: true,
-                translateTime: 'SYS:standard',
-                ignore: 'pid,hostname',
-              },
-            }
-          : {
-              target: 'pino-opentelemetry-transport',
-            },
+        transport,
       },
     };
   },

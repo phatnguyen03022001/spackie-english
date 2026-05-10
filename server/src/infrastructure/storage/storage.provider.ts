@@ -2,6 +2,7 @@ export interface UploadOptions {
   folder?: string;
   publicId?: string;
   overwrite?: boolean;
+  resourceType?: 'image' | 'audio' | 'auto';
 }
 
 export interface UploadResult {

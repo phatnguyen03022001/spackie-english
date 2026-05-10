@@ -1,22 +1,7 @@
 // ============================================================
-// Prisma Schema – Spackie English (Anki + Paroto)
-// DB      : MongoDB (Atlas) hoặc PostgreSQL (khuyến nghị nếu cần transaction)
-// Updated : 2025-04-21 – Phiên bản 10/10 (hỗ trợ 11 modules)
-//
-// ⚠️ LƯU Ý QUAN TRỌNG VỚI MONGODB ATLAS FREE TIER (M0):
-//   • KHÔNG hỗ trợ transaction.
-//   • Các thao tác cần atomic (payment + subscription, tạo card + update deck count)
-//     phải dùng idempotency key + cron job reconcile hoặc nâng lên M10+.
-//   • Nếu dùng PostgreSQL, transaction hoạt động bình thường.
-//
-// Triết lý thiết kế:
-//   • Ít model nhất có thể → gộp dữ liệu nhỏ vào Json/[]
-//   • Chỉ 2 role: USER | ADMIN
-//   • VIP qua Subscription + Payment (PayOS)
-//   • SM-2 algorithm lưu trực tiếp trên CardProgress
-//   • Notification config gộp vào User.settings (Json)
-//   • OTP, session, notification log dùng Redis + OpenTelemetry
-//   • Hỗ trợ listening (Paroto) qua ListeningPractice
+// Prisma Schema – Spackie English (Global Vocabulary + Parroto)
+// DB      : MongoDB Atlas (M0+)
+// Version : 10/10 – Nâng cấp tối ưu chi phí & Anki-like
 // ============================================================
 
 generator client {
@@ -24,7 +9,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mongodb" // hoặc "postgresql" nếu cần transaction
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
@@ -63,10 +48,10 @@ enum DeckVisibility {
 }
 
 enum CardRating {
-  AGAIN // 0 – quên hoàn toàn
-  HARD // 1 – khó
-  GOOD // 2 – nhớ được
-  EASY // 3 – dễ
+  AGAIN
+  HARD
+  GOOD
+  EASY
 }
 
 enum FileRefType {
@@ -77,25 +62,25 @@ enum FileRefType {
 }
 
 enum ListeningType {
-  REPEAT // nghe và nhắc lại
-  DICTATION // nghe và viết lại
-  COMPREHENSION // trả lời câu hỏi sau khi nghe
+  REPEAT
+  DICTATION
+  COMPREHENSION
+  YOUTUBE_SYNC
 }
 
 // ─────────────────────────────────────────────
-// MODEL: User
-// Gộp: avatar URL, settings (reminder, theme, language)
+// MODEL: User (giữ nguyên – không thay đổi)
 // ─────────────────────────────────────────────
 
 model User {
   id           String  @id @default(auto()) @map("_id") @db.ObjectId
   email        String  @unique
   username     String  @unique
-  passwordHash String? // null nếu đăng nhập OAuth
+  passwordHash String?
 
   role       Role         @default(USER)
   provider   AuthProvider @default(LOCAL)
-  providerId String? // OAuth user ID
+  providerId String?
 
   avatarUrl   String?
   displayName String?
@@ -103,19 +88,13 @@ model User {
   isVerified  Boolean @default(false)
   isBanned    Boolean @default(false)
 
-  // settings JSON structure:
-  // { reminderEnabled: true, reminderTime: "08:00", theme: "light", language: "vi", pushEnabled: true }
-  // KHÔNG thể index trực tiếp trên JSON field trong MongoDB.
-  // Nếu cần filter theo setting, hãy tách thành column riêng.
   settings Json @default("{}")
 
-  // Denormalized stats (cập nhật qua event listener)
   totalCardsLearned Int       @default(0)
   currentStreak     Int       @default(0)
   longestStreak     Int       @default(0)
   lastStudiedAt     DateTime?
 
-  // Relations
   subscription       Subscription?
   payments           Payment[]
   decks              Deck[]
@@ -126,9 +105,8 @@ model User {
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // soft delete
+  deletedAt DateTime?
 
-  // Indexes (bỏ @@index([email]) vì email đã có @unique)
   @@index([provider, providerId])
   @@index([role])
   @@index([deletedAt])
@@ -136,7 +114,7 @@ model User {
 }
 
 // ─────────────────────────────────────────────
-// MODEL: Subscription (1-1 với User)
+// MODEL: Subscription (giữ nguyên)
 // ─────────────────────────────────────────────
 
 model Subscription {
@@ -145,11 +123,10 @@ model Subscription {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   status    SubscriptionStatus @default(EXPIRED)
-  plan      String             @default("monthly") // "monthly" | "yearly"
+  plan      String             @default("monthly")
   startedAt DateTime?
   expiresAt DateTime?
 
-  // meta: { autoRenew: true, cancelReason: "price", source: "payos" }
   meta Json @default("{}")
 
   createdAt DateTime @default(now())
@@ -161,7 +138,7 @@ model Subscription {
 }
 
 // ─────────────────────────────────────────────
-// MODEL: Payment (mỗi lần thanh toán)
+// MODEL: Payment (giữ nguyên)
 // ─────────────────────────────────────────────
 
 model Payment {
@@ -169,20 +146,18 @@ model Payment {
   userId String @db.ObjectId
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  orderCode   String        @unique // PayOS order code
+  orderCode   String        @unique
   amount      Int
   currency    String        @default("VND")
   description String?
   status      PaymentStatus @default(PENDING)
   provider    String        @default("payos")
 
-  plan         String // "monthly" | "yearly"
-  durationDays Int // 30 | 365
+  plan         String
+  durationDays Int
 
   paidAt DateTime?
-
-  // meta: { payosResponse: {...}, webhookPayload: {...}, returnUrl, cancelUrl }
-  meta Json @default("{}")
+  meta   Json      @default("{}")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -193,100 +168,7 @@ model Payment {
 }
 
 // ─────────────────────────────────────────────
-// MODEL: Deck (bộ thẻ)
-// ─────────────────────────────────────────────
-
-model Deck {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  title       String
-  description String?
-  coverUrl    String?
-  visibility  DeckVisibility @default(PRIVATE)
-  tags        String[]       @default([]) // mảng string, đủ cho MVP
-  isVipOnly   Boolean        @default(false)
-
-  totalCards Int    @default(0)
-  cards      Card[]
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  @@index([userId])
-  @@index([visibility])
-  @@index([tags])
-  @@index([deletedAt])
-  @@map("decks")
-}
-
-// ─────────────────────────────────────────────
-// MODEL: Card (thẻ từ vựng)
-// ─────────────────────────────────────────────
-
-model Card {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  deckId String @db.ObjectId
-  deck   Deck   @relation(fields: [deckId], references: [id], onDelete: Cascade)
-
-  front    String
-  back     String
-  imageUrl String?
-  audioUrl String?
-
-  // extras: { pronunciation: "...", pos: "noun", examples: ["..."], hint: "...", expectedText: "..." }
-  extras    Json @default("{}")
-  sortOrder Int  @default(0)
-
-  cardProgress       CardProgress[]
-  listeningPractices ListeningPractice[]
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
-  @@index([deckId])
-  @@index([deletedAt])
-  @@map("cards")
-}
-
-// ─────────────────────────────────────────────
-// MODEL: CardProgress (SM-2 state per user per card)
-// ─────────────────────────────────────────────
-
-model CardProgress {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cardId String @db.ObjectId
-  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
-
-  // SM-2 fields
-  easeFactor  Float    @default(2.5)
-  interval    Int      @default(0) // days
-  repetitions Int      @default(0)
-  dueDate     DateTime @default(now())
-
-  lastRating  CardRating?
-  reviewCount Int         @default(0)
-
-  // recentReviews: array of { rating, reviewedAt, intervalBefore }
-  // Giới hạn 50 bản ghi, do service code đảm bảo.
-  recentReviews Json[] @default([])
-
-  firstSeenAt  DateTime  @default(now())
-  lastReviewAt DateTime?
-
-  @@unique([userId, cardId])
-  @@index([userId, dueDate]) // quan trọng: lấy thẻ cần ôn
-  @@index([cardId])
-  @@map("card_progress")
-}
-
-// ─────────────────────────────────────────────
-// MODEL: File (quản lý file upload)
+// MODEL: File (giữ nguyên)
 // ─────────────────────────────────────────────
 
 model File {
@@ -296,13 +178,12 @@ model File {
 
   url          String
   publicId     String       @unique
-  resourceType String // "image" | "video" | "raw"
+  resourceType String
   mimeType     String
   sizeBytes    Int
-  refType      FileRefType? // avatar, card_image, card_audio, deck_cover
-  refId        String?      @db.ObjectId // ID của User, Card, Deck (không có FK)
+  refType      FileRefType?
+  refId        String?      @db.ObjectId
 
-  // meta: { width, height, duration, format }
   meta Json @default("{}")
 
   createdAt DateTime @default(now())
@@ -313,35 +194,7 @@ model File {
 }
 
 // ─────────────────────────────────────────────
-// MODEL: ListeningPractice (lưu kết quả luyện nghe/nói)
-// ─────────────────────────────────────────────
-
-model ListeningPractice {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cardId String @db.ObjectId
-  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
-
-  type     ListeningType @default(REPEAT)
-  score    Float // 0-100 điểm tổng
-  fluency  Float? // điểm trôi chảy (nếu có)
-  accuracy Float? // điểm chính xác (nếu có)
-  duration Int // thời gian ghi âm (ms)
-
-  // Client gửi kết quả dạng JSON (chi tiết: transcript, expectedText, wordErrors, device, browser, modelVersion...)
-  result Json @default("{}")
-
-  createdAt DateTime @default(now())
-
-  @@unique([userId, cardId, createdAt]) // tránh duplicate cùng thời điểm
-  @@index([userId, cardId])
-  @@index([type])
-  @@map("listening_practices")
-}
-
-// ─────────────────────────────────────────────
-// MODEL: AdminDevice (quản lý thiết bị cho admin)
+// MODEL: AdminDevice (giữ nguyên)
 // ─────────────────────────────────────────────
 
 model AdminDevice {
@@ -358,14 +211,14 @@ model AdminDevice {
 }
 
 // ─────────────────────────────────────────────
-// MODEL: Otp (lưu OTP hash cho forgot-password)
+// MODEL: Otp (giữ nguyên)
 // ─────────────────────────────────────────────
 
 model Otp {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String
-  otpHash   String // bcrypt hash
-  type      String // "FORGOT_PASSWORD", "VERIFY_EMAIL"
+  otpHash   String
+  type      String
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -374,19 +227,151 @@ model Otp {
 }
 
 // ─────────────────────────────────────────────
-// (Tùy chọn) MODEL: Tag
-// Nếu cần hệ thống tag chuyên nghiệp (có slug, mô tả, admin quản lý)
-// Mở comment bên dưới và sửa model Deck để dùng quan hệ many-to-many.
+// MODEL: Deck (cập nhật – dùng mapping)
 // ─────────────────────────────────────────────
-// model Tag {
-//   id    String @id @default(auto()) @map("_id") @db.ObjectId
-//   name  String @unique
-//   slug  String @unique
-//   description String?
-//   decks Deck[] @relation("DeckToTag")
-//   @@map("tags")
-// }
 
-// Nếu dùng Tag model, thêm vào Deck:
-//   tagsRelation Tag[] @relation("DeckToTag")
-// và bỏ field `tags String[]`
+model Deck {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  coverUrl    String?
+  visibility  DeckVisibility @default(PRIVATE)
+  tags        String[]       @default([])
+  isVipOnly   Boolean        @default(false)
+
+  totalCards Int @default(0)
+
+  cardMappings DeckCardMapping[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId])
+  @@index([visibility])
+  @@index([tags])
+  @@index([deletedAt])
+  @@map("decks")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: GlobalCard (MỚI – kho từ vựng dùng chung)
+// ─────────────────────────────────────────────
+
+model GlobalCard {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  front    String  @unique
+  back     String?
+  imageUrl String?
+  audioUrl String?
+
+  extras Json @default("{}") // pronunciation, pos, examples, hint...
+
+  status       String  @default("pending") // pending, meaning_ready, completed, partial, failed
+  errorMessage String?
+
+  validated       Boolean  @default(false) // true after validation check
+  valid           Boolean? // null = unknown, true = valid, false = invalid
+  validationError String?
+
+  deckMappings       DeckCardMapping[]
+  cardProgress       CardProgress[]
+  listeningPractices ListeningPractice[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([deletedAt])
+  @@map("global_cards")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: DeckCardMapping (MỚI – liên kết Deck ↔ GlobalCard)
+// ─────────────────────────────────────────────
+
+model DeckCardMapping {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  deckId String @db.ObjectId
+  deck   Deck   @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  globalCardId String     @db.ObjectId
+  globalCard   GlobalCard @relation(fields: [globalCardId], references: [id], onDelete: Cascade)
+
+  sortOrder Int      @default(0)
+  addedAt   DateTime @default(now())
+
+  @@unique([deckId, globalCardId])
+  @@index([deckId])
+  @@index([globalCardId])
+  @@map("deck_card_mappings")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: CardProgress (cập nhật – gắn với GlobalCard, độc lập Deck)
+// ─────────────────────────────────────────────
+
+model CardProgress {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  globalCardId String     @db.ObjectId
+  globalCard   GlobalCard @relation(fields: [globalCardId], references: [id], onDelete: Cascade)
+
+  easeFactor  Float    @default(2.5)
+  interval    Int      @default(0)
+  repetitions Int      @default(0)
+  dueDate     DateTime @default(now())
+
+  lastRating  CardRating?
+  reviewCount Int         @default(0)
+
+  recentReviews Json[] @default([])
+
+  firstSeenAt  DateTime  @default(now())
+  lastReviewAt DateTime?
+
+  @@unique([userId, globalCardId])
+  @@index([userId, dueDate])
+  @@index([globalCardId])
+  @@map("card_progress")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: ListeningPractice (cập nhật – hỗ trợ YouTube)
+// ─────────────────────────────────────────────
+
+model ListeningPractice {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  globalCardId String?     @db.ObjectId
+  globalCard   GlobalCard? @relation(fields: [globalCardId], references: [id])
+
+  type     ListeningType @default(REPEAT)
+  score    Float
+  fluency  Float?
+  accuracy Float?
+  duration Int // milliseconds
+
+  // YouTube Parroto fields
+  youtubeId String?
+  startTime Float?
+  endTime   Float?
+
+  result Json @default("{}") // transcript, expectedText, wordErrors, etc.
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, globalCardId])
+  @@index([userId, youtubeId])
+  @@index([type])
+  @@map("listening_practices")
+}

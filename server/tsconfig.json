@@ -1,34 +1,13 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "es2020",
-    "module": "CommonJS",
     "rootDir": "./src",
     "outDir": "./dist",
-    "paths": {
-      "@/*": ["./src/*"],
-      "@common/*": ["./src/common/*"],
-      "@config/*": ["./src/config/*"],
-      "@infrastructure/*": ["./src/infrastructure/*"],
-      "@database/*": ["./src/database/*"],
-      "@jobs/*": ["./src/jobs/*"],
-      "@modules/*": ["./src/modules/*"]
-    },
-    "strict": true,
     "types": ["node", "multer"],
-    "esModuleInterop": true,
-    "isolatedModules": false,
     "declaration": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
     "sourceMap": true,
-    "incremental": false,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "incremental": false
   },
-  "include": [
-    "src/**/*.ts",
-    "types/**/*.d.ts"
-, "src/infrastructure/pusher/ws.adapter.ts.deprecated"  ],
+  "include": ["src/**/*.ts", "types/**/*.d.ts"],
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma/generated"]
 }

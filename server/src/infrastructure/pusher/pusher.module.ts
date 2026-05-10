@@ -1,6 +1,6 @@
 import { Module, Global } from '@nestjs/common';
-import { PusherService } from './pusher.service';
-import { PusherHealthIndicator } from './pusher.health';
+import { PusherService } from '@infrastructure/pusher/pusher.service';
+import { PusherHealthIndicator } from '@infrastructure/pusher/pusher.health';
 import { TerminusModule } from '@nestjs/terminus';
 
 @Global()

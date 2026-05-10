@@ -1,10 +1,10 @@
 import { Module, Global } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerService } from '@common/logger/logger.service';
-import { MailService } from './mail.service';
-import { BrevoProvider } from './brevo.provider';
-import { MailHealthIndicator } from './mail.health';
-import { MailProvider } from './mail.provider';
+import { MailService } from '@infrastructure/mail/mail.service';
+import { BrevoProvider } from '@infrastructure/mail/brevo.provider';
+import { MailHealthIndicator } from '@infrastructure/mail/mail.health';
+import { MailProvider } from '@infrastructure/mail/mail.provider';
 import { TerminusModule } from '@nestjs/terminus';
 
 @Global()

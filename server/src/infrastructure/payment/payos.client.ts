@@ -1,4 +1,4 @@
-import { BaseApiClient } from '../third-party/base.client';
+import { BaseApiClient } from '@infrastructure/third-party/base.client';
 import type { LoggerService } from '@common/logger/logger.service';
 
 export interface PayOSCreatePaymentResponse {

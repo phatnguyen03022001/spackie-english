@@ -1,8 +1,8 @@
 // src/common/dto/index.ts
-export { SuccessResponseDto } from './success-response.dto';
-export { ErrorResponseDto } from './error-response.dto';
-export { PaginationRequestDto } from './pagination-request.dto';
+export { SuccessResponseDto } from '@common/dto/success-response.dto';
+export { ErrorResponseDto } from '@common/dto/error-response.dto';
+export { PaginationRequestDto } from '@common/dto/pagination-request.dto';
 export {
   PaginationResponseDto,
   PaginationMetaDto,
-} from './pagination-response.dto';
+} from '@common/dto/pagination-response.dto';
