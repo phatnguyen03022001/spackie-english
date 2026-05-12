@@ -18,6 +18,9 @@ import { LoggerService } from '@common/logger/logger.service';
 import { WordValidatorClient } from '@infrastructure/third-party/word-validator.client';
 import { ERROR_CODES } from '@common/constants/error-codes.const';
 import { CardExtras } from './interfaces/card-enrichment-result.interface';
+import { UploadFileUseCase } from '@modules/file-manager/use-cases/upload-file.use-case';
+import { DeleteFileUseCase } from '@modules/file-manager/use-cases/delete-file.use-case';
+import { FileManagerRepository } from '@modules/file-manager/file-manager.repository';
 import { PrismaService } from '@database/prisma.service';
 
 @Injectable()
@@ -36,6 +39,9 @@ export class CardsService {
     private readonly logger: LoggerService,
     private readonly wordValidator: WordValidatorClient,
     private readonly prisma: PrismaService,
+    private readonly uploadFileUseCase: UploadFileUseCase,
+    private readonly deleteFileUseCase: DeleteFileUseCase,
+    private readonly fileManagerRepository: FileManagerRepository,
   ) {
     this.logger.setContext(CardsService.name);
   }
@@ -315,42 +321,50 @@ export class CardsService {
       );
     }
 
-    // Upload to storage with consistent publicId
-    const timestamp = Date.now();
-    const publicId = `cards/images/${cardId}_${timestamp}`;
-    const uploadResult = await this.storageService.upload(
-      fileBuffer,
-      fileName,
-      {
-        folder: 'cards/images',
-        publicId,
-      },
+    // Find existing image file to delete later
+    const existingFiles = await this.fileManagerRepository.findByUserId(userId);
+    const existingImage = existingFiles.find(
+      (f) => f.refType === 'CARD_IMAGE' && f.refId === cardId,
     );
+
+    // Upload via FileManager to create metadata record
+    const multerFile = {
+      buffer: fileBuffer,
+      originalname: fileName,
+      mimetype: _mimeType || 'image/jpeg',
+      size: fileBuffer.length,
+      fieldname: 'file',
+      encoding: '7bit',
+      destination: '',
+      filename: fileName,
+      path: '',
+      stream: null as unknown as NodeJS.ReadableStream,
+    } as Express.Multer.File;
+
+    const uploadedFile = await this.uploadFileUseCase.execute(
+      userId,
+      multerFile,
+      'CARD_IMAGE',
+      cardId,
+    );
+
+    // Delete old image file if exists (directly via repository to bypass refCount check)
+    if (existingImage) {
+      try {
+        await this.storageService.delete(existingImage.publicId);
+        await this.fileManagerRepository.delete(existingImage.id);
+        await this.cacheManager.del(`file:quota:${userId}`);
+      } catch (err: unknown) {
+        this.logger.warn(
+          `Failed to delete old card image: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
 
     // Update GlobalCard
     const updated = await this.repository.updateGlobalCard(cardId, {
-      imageUrl: uploadResult.url,
+      imageUrl: uploadedFile.url,
     });
-
-    // Create File record for ownership tracking and quota
-    await this.prisma.file
-      .create({
-        data: {
-          userId,
-          url: uploadResult.url,
-          publicId: uploadResult.publicId,
-          resourceType: 'image',
-          mimeType: _mimeType,
-          sizeBytes: fileBuffer.length,
-          refType: 'CARD_IMAGE',
-          refId: cardId,
-        },
-      })
-      .catch((err: unknown) => {
-        this.logger.warn(
-          `Failed to create File record for card image: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
 
     await this.cacheManager.del(
       CacheKeyBuilder.resource(this.domain, 'global', cardId),
@@ -369,6 +383,23 @@ export class CardsService {
         'CARD_NOT_FOUND',
         'Card not found',
       );
+    }
+
+    // Find and delete the associated File record
+    const existingFiles = await this.fileManagerRepository.findByUserId(userId);
+    const existingImage = existingFiles.find(
+      (f) => f.refType === 'CARD_IMAGE' && f.refId === cardId,
+    );
+    if (existingImage) {
+      try {
+        await this.storageService.delete(existingImage.publicId);
+        await this.fileManagerRepository.delete(existingImage.id);
+        await this.cacheManager.del(`file:quota:${userId}`);
+      } catch (err: unknown) {
+        this.logger.warn(
+          `Failed to delete card image file: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     const updated = await this.repository.updateGlobalCard(cardId, {
@@ -400,41 +431,49 @@ export class CardsService {
       );
     }
 
-    // Upload to storage with consistent publicId
-    const timestamp = Date.now();
-    const publicId = `cards/audio/${cardId}_${timestamp}`;
-    const uploadResult = await this.storageService.upload(
-      fileBuffer,
-      fileName,
-      {
-        folder: 'cards/audio',
-        publicId,
-      },
+    // Find existing audio file to delete later
+    const existingFiles = await this.fileManagerRepository.findByUserId(userId);
+    const existingAudio = existingFiles.find(
+      (f) => f.refType === 'CARD_AUDIO' && f.refId === cardId,
     );
 
-    const updated = await this.repository.updateGlobalCard(cardId, {
-      audioUrl: uploadResult.url,
-    });
+    // Upload via FileManager to create metadata record
+    const multerFile = {
+      buffer: fileBuffer,
+      originalname: fileName,
+      mimetype: _mimeType || 'audio/mpeg',
+      size: fileBuffer.length,
+      fieldname: 'file',
+      encoding: '7bit',
+      destination: '',
+      filename: fileName,
+      path: '',
+      stream: null as unknown as NodeJS.ReadableStream,
+    } as Express.Multer.File;
 
-    // Create File record for ownership tracking and quota
-    await this.prisma.file
-      .create({
-        data: {
-          userId,
-          url: uploadResult.url,
-          publicId: uploadResult.publicId,
-          resourceType: 'audio',
-          mimeType: _mimeType,
-          sizeBytes: fileBuffer.length,
-          refType: 'CARD_AUDIO',
-          refId: cardId,
-        },
-      })
-      .catch((err: unknown) => {
+    const uploadedFile = await this.uploadFileUseCase.execute(
+      userId,
+      multerFile,
+      'CARD_AUDIO',
+      cardId,
+    );
+
+    // Delete old audio file if exists (directly via repository to bypass refCount check)
+    if (existingAudio) {
+      try {
+        await this.storageService.delete(existingAudio.publicId);
+        await this.fileManagerRepository.delete(existingAudio.id);
+        await this.cacheManager.del(`file:quota:${userId}`);
+      } catch (err: unknown) {
         this.logger.warn(
-          `Failed to create File record for card audio: ${err instanceof Error ? err.message : String(err)}`,
+          `Failed to delete old card audio: ${err instanceof Error ? err.message : String(err)}`,
         );
-      });
+      }
+    }
+
+    const updated = await this.repository.updateGlobalCard(cardId, {
+      audioUrl: uploadedFile.url,
+    });
 
     await this.cacheManager.del(
       CacheKeyBuilder.resource(this.domain, 'global', cardId),
@@ -453,6 +492,23 @@ export class CardsService {
         'CARD_NOT_FOUND',
         'Card not found',
       );
+    }
+
+    // Find and delete the associated File record
+    const existingFiles = await this.fileManagerRepository.findByUserId(userId);
+    const existingAudio = existingFiles.find(
+      (f) => f.refType === 'CARD_AUDIO' && f.refId === cardId,
+    );
+    if (existingAudio) {
+      try {
+        await this.storageService.delete(existingAudio.publicId);
+        await this.fileManagerRepository.delete(existingAudio.id);
+        await this.cacheManager.del(`file:quota:${userId}`);
+      } catch (err: unknown) {
+        this.logger.warn(
+          `Failed to delete card audio file: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     const updated = await this.repository.updateGlobalCard(cardId, {
@@ -504,20 +560,35 @@ export class CardsService {
       const audioBuffer = await this.ttsClient.synthesize(card.front);
 
       if (audioBuffer) {
-        const uploadResult = await this.storageService.upload(
-          audioBuffer,
-          `${card.front}.mp3`,
-          { folder: 'cards/audio' },
+        // Use FileManager to upload with metadata tracking
+        const mockFile = {
+          buffer: audioBuffer,
+          originalname: `${card.front}.mp3`,
+          mimetype: 'audio/mpeg',
+          size: audioBuffer.length,
+          fieldname: 'file',
+          encoding: '7bit',
+          destination: '',
+          filename: `${card.front}.mp3`,
+          path: '',
+          stream: null as unknown as NodeJS.ReadableStream,
+        } as Express.Multer.File;
+
+        const uploadedFile = await this.uploadFileUseCase.execute(
+          userId,
+          mockFile,
+          'CARD_AUDIO',
+          cardId,
         );
 
         const updated = await this.repository.updateGlobalCard(cardId, {
-          audioUrl: uploadResult.url,
+          audioUrl: uploadedFile.url,
         });
 
         // Cache audio URL
         await this.cacheManager.set(
           audioCacheKey,
-          uploadResult.url,
+          uploadedFile.url,
           30 * 86400,
         );
 

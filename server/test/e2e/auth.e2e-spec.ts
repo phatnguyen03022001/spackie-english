@@ -5,14 +5,24 @@ import { AppModule } from '@/app.module';
 import { PrismaService } from '@database/prisma.service';
 import { RedisService } from '@infrastructure/redis/redis.service';
 import { MailService } from '@infrastructure/mail/mail.service';
+import { PusherService } from '@infrastructure/pusher/pusher.service';
+import { StorageService } from '@infrastructure/storage/storage.service';
 import * as bcrypt from 'bcrypt';
 import {
   createMockMailService,
   createMockRedisService,
+  createMockPusherService,
+  createMockStorageService,
+  createMockQueue,
+  QUEUE_NAMES,
 } from './support/test-doubles';
+import { getQueueToken } from '@nestjs/bull';
 
 const mockRedisService = createMockRedisService();
 const mockMailService = createMockMailService();
+const mockPusherService = createMockPusherService();
+const mockStorageService = createMockStorageService();
+const mockQueue = createMockQueue();
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
@@ -66,6 +76,20 @@ describe('AuthController (e2e)', () => {
       .useValue(mockRedisService)
       .overrideProvider(MailService)
       .useValue(mockMailService)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.NOTIFICATION))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.AI_ENRICHMENT))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.MEDIA_ENRICHMENT))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.PAYMENT_WEBHOOK))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.FAILED_TTS))
+      .useValue(mockQueue)
+      .overrideProvider(PusherService)
+      .useValue(mockPusherService)
+      .overrideProvider(StorageService)
+      .useValue(mockStorageService)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -85,6 +109,8 @@ describe('AuthController (e2e)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRedisService.reset();
+    mockMailService.reset();
   });
 
   describe('POST /auth/register', () => {
@@ -107,6 +133,11 @@ describe('AuthController (e2e)', () => {
 
   describe('POST /auth/verify-email', () => {
     beforeEach(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await prisma.otp.deleteMany({
+        where: { email: testUser.email, type: 'VERIFY_EMAIL' },
+      });
+
       // Tạo OTP mới với hash của '123456'
       const hashedOtp = await bcrypt.hash('123456', 10);
       await prisma.otp.create({
@@ -295,6 +326,13 @@ describe('AuthController (e2e)', () => {
 
   describe('POST /auth/refresh', () => {
     it('should refresh tokens with valid refresh token', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: testUser.email, password: testUser.password })
+        .expect(200);
+      userAccessToken = loginRes.body.data.accessToken;
+      userRefreshToken = loginRes.body.data.refreshToken;
+
       const res = await request(app.getHttpServer())
         .post('/auth/refresh')
         .send({ refreshToken: userRefreshToken })
@@ -302,6 +340,7 @@ describe('AuthController (e2e)', () => {
       expect(res.body.data.accessToken).toBeDefined();
       expect(res.body.data.refreshToken).toBeDefined();
       userAccessToken = res.body.data.accessToken;
+      userRefreshToken = res.body.data.refreshToken;
     });
 
     it('should fail with invalid refresh token', async () => {
@@ -528,6 +567,17 @@ describe('AuthController (e2e)', () => {
     let newDeviceId: string;
     let adminUserId: string;
 
+    const requestDeviceOtp = async () => {
+      await request(app.getHttpServer())
+        .post('/auth/admin/request-device-otp')
+        .send({
+          email: adminEmail,
+          deviceId: newDeviceId,
+          deviceName: 'E2E OTP Device',
+        })
+        .expect(202);
+    };
+
     beforeAll(async () => {
       adminEmail = testAdmin.email;
       adminPassword = testAdmin.password;
@@ -542,6 +592,13 @@ describe('AuthController (e2e)', () => {
         where: { userId: adminUserId, deviceId: newDeviceId },
       });
       // Reset mock mail service OTP storage
+      mockMailService.reset();
+    });
+
+    beforeEach(async () => {
+      await prisma.adminDevice.deleteMany({
+        where: { userId: adminUserId, deviceId: newDeviceId },
+      });
       mockMailService.reset();
     });
 
@@ -560,20 +617,13 @@ describe('AuthController (e2e)', () => {
     });
 
     it('should request OTP for new device', async () => {
-      await request(app.getHttpServer())
-        .post('/auth/admin/request-device-otp')
-        .send({
-          email: adminEmail,
-          deviceId: newDeviceId,
-          deviceName: 'E2E OTP Device',
-        })
-        .expect(202);
-      // Wait a bit for async mail mock to capture OTP
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      expect(mockMailService.getLastOtp()).toBeDefined();
+      await requestDeviceOtp();
+      expect(mockMailService.getOtpForEmail(adminEmail)).toBeDefined();
     });
 
     it('should fail verification with wrong OTP', async () => {
+      await requestDeviceOtp();
+
       await request(app.getHttpServer())
         .post('/auth/admin/verify-device')
         .send({ email: adminEmail, deviceId: newDeviceId, otp: '000000' })
@@ -581,7 +631,9 @@ describe('AuthController (e2e)', () => {
     });
 
     it('should verify OTP and login', async () => {
-      const otp = mockMailService.getLastOtp();
+      await requestDeviceOtp();
+
+      const otp = mockMailService.getOtpForEmail(adminEmail);
       expect(otp).toBeDefined();
 
       const res = await request(app.getHttpServer())
@@ -605,6 +657,19 @@ describe('AuthController (e2e)', () => {
     });
 
     it('should now login with the same device without OTP', async () => {
+      const otp = mockMailService.getOtpForEmail(adminEmail);
+      if (!otp) {
+        await requestDeviceOtp();
+      }
+
+      const freshOtp = mockMailService.getOtpForEmail(adminEmail);
+      expect(freshOtp).toBeDefined();
+
+      await request(app.getHttpServer())
+        .post('/auth/admin/verify-device')
+        .send({ email: adminEmail, deviceId: newDeviceId, otp: freshOtp })
+        .expect(200);
+
       const res = await request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -618,11 +683,12 @@ describe('AuthController (e2e)', () => {
   });
 
   describe('POST /auth/logout-all', () => {
-    it('should logout from all devices', async () => {
+    it('should logout from all devices and invalidate refresh tokens', async () => {
       await request(app.getHttpServer())
         .post('/auth/logout-all')
         .set('Authorization', `Bearer ${userAccessToken}`)
         .expect(204);
+      // After logout-all, the old refresh token should be invalid
       await request(app.getHttpServer())
         .post('/auth/refresh')
         .send({ refreshToken: userRefreshToken })

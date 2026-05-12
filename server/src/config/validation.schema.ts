@@ -6,7 +6,7 @@ export const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test')
     .default('development'),
-  APP_NAME: Joi.string().default('NestJS Server'),
+  APP_NAME: Joi.string().default('Spackie English'),
   APP_PORT: Joi.number().port().default(8000),
   API_PREFIX: Joi.string().default('api'),
   FRONTEND_URL: Joi.string().uri().default('http://localhost:3000'),
@@ -21,16 +21,16 @@ export const validationSchema = Joi.object({
   JWT_SECRET: Joi.string().required(),
   JWT_REFRESH_SECRET: Joi.string().required(),
   JWT_PREVIOUS_SECRET: Joi.string().optional(),
-  JWT_EXPIRES_IN: Joi.string().default('15m'),
+  JWT_EXPIRES_IN: Joi.string().default('1d'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
   BCRYPT_SALT_ROUNDS: Joi.number().integer().min(4).max(31).default(10),
 
   // Swagger
-  SWAGGER_ENABLE: Joi.boolean().default(false),
+  SWAGGER_ENABLE: Joi.boolean().default(true),
   SWAGGER_PATH: Joi.string().default('docs'),
   SWAGGER_TITLE: Joi.string().optional(),
   SWAGGER_DESCRIPTION: Joi.string().optional(),
-  SWAGGER_VERSION: Joi.string().default('1.0'),
+  SWAGGER_VERSION: Joi.string().default('1.0.0'),
 
   // CORS
   CORS_ALLOWED_ORIGINS: Joi.string().optional().default(''),
@@ -113,6 +113,9 @@ export const validationSchema = Joi.object({
   // Vercel CORS
   VERCEL_TEAM_SLUG: Joi.string().optional(),
 
+  // Node.js Runtime
+  NODE_OPTIONS: Joi.string().optional(),
+
   // Pagination
   DEFAULT_PAGE_SIZE: Joi.number().integer().min(1).max(100).default(20),
 
@@ -169,4 +172,19 @@ export const validationSchema = Joi.object({
   GOOGLE_TTS_VOICE: Joi.string().default('en-US-Standard-B'),
   GOOGLE_TTS_SPEED: Joi.number().min(0.25).max(4.0).default(1.0),
   GOOGLE_TTS_TIMEOUT: Joi.number().integer().default(15000),
+
+  // Google OAuth
+  GOOGLE_CLIENT_ID: Joi.string().optional(),
+  GOOGLE_CLIENT_SECRET: Joi.string().optional(),
+
+  // Facebook OAuth
+  FACEBOOK_APP_ID: Joi.string().optional(),
+  FACEBOOK_APP_SECRET: Joi.string().optional(),
+
+  // 2FA
+  TWO_FACTOR_ENABLED: Joi.boolean().default(true),
+  TWO_FACTOR_SECRET_ENCRYPTION_KEY: Joi.string().min(32).optional(),
+
+  // GDPR
+  GDPR_EXPORT_MAX_SIZE_MB: Joi.number().integer().min(1).max(100).default(10),
 });

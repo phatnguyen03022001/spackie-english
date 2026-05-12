@@ -24,4 +24,20 @@ export class AuthConfigService {
   get bcryptSaltRounds(): number {
     return this.configService.get<number>('auth.bcryptSaltRounds') ?? 10;
   }
+
+  // Google OAuth
+  get googleClientId(): string | undefined {
+    return this.configService.get<string>('auth.googleClientId');
+  }
+  get googleClientSecret(): string | undefined {
+    return this.configService.get<string>('auth.googleClientSecret');
+  }
+
+  // Facebook OAuth
+  get facebookAppId(): string | undefined {
+    return this.configService.get<string>('auth.facebookAppId');
+  }
+  get facebookAppSecret(): string | undefined {
+    return this.configService.get<string>('auth.facebookAppSecret');
+  }
 }

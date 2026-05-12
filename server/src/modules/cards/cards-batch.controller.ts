@@ -11,7 +11,13 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { CreateCardBatchUseCase } from './use-cases/create-card-batch.use-case';
 import { CreateCardBatchDto } from './dto/create-card-batch.dto';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
@@ -37,6 +43,11 @@ export class CardsBatchController {
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Batch create cards with async enrichment' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    description: 'Required idempotency key to prevent duplicate batch creation',
+    required: true,
+  })
   async createBatch(
     @CurrentUser() user: RequestUser,
     @Param('deckId') deckId: string,
@@ -86,6 +97,54 @@ export class JobStatusController {
 
   @Get('batch/:batchId')
   @ApiOperation({ summary: 'Get batch enrichment status' })
+  @ApiResponse({
+    status: 200,
+    description: 'Batch enrichment status with progress and items',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/SuccessResponseDto' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                batchId: { type: 'string', example: 'batch-123' },
+                status: {
+                  type: 'string',
+                  enum: ['processing', 'completed', 'partial'],
+                },
+                progress: {
+                  type: 'object',
+                  properties: {
+                    total: { type: 'number', example: 10 },
+                    completed: { type: 'number', example: 5 },
+                    failed: { type: 'number', example: 0 },
+                  },
+                },
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      front: { type: 'string' },
+                      status: {
+                        type: 'string',
+                        enum: ['pending', 'processing', 'completed', 'failed'],
+                      },
+                      cardId: { type: 'string', nullable: true },
+                      jobId: { type: 'string' },
+                      error: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getBatchStatus(
     @Param('batchId') batchId: string,
   ): Promise<SuccessResponseDto<BatchJobResult | null>> {
@@ -97,6 +156,33 @@ export class JobStatusController {
 
   @Get(':jobId')
   @ApiOperation({ summary: 'Get individual job status' })
+  @ApiResponse({
+    status: 200,
+    description: 'Individual job enrichment status',
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/SuccessResponseDto' },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                status: {
+                  type: 'string',
+                  enum: ['pending', 'processing', 'completed', 'failed'],
+                },
+                cardId: { type: 'string' },
+                front: { type: 'string' },
+                error: { type: 'string' },
+                updatedAt: { type: 'string', format: 'date-time' },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getJobStatus(
     @Param('jobId') jobId: string,
   ): Promise<SuccessResponseDto<unknown>> {

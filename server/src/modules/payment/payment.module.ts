@@ -11,6 +11,7 @@ import { PaymentRepository } from '@modules/payment/payment.repository';
 import { PaymentWebhookProcessor } from '@modules/payment/processors/payment-webhook.processor';
 import { PusherModule } from '@infrastructure/pusher/pusher.module';
 import { PrismaModule } from '@database/prisma.module';
+import { PaymentModule as InfraPaymentModule } from '@/infrastructure/payment/payment.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { PrismaModule } from '@database/prisma.module';
     BullModule.registerQueue({
       name: 'payment-webhook',
     }),
+    InfraPaymentModule,
   ],
   controllers: [
     PaymentController,

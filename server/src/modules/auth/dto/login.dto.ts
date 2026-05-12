@@ -18,4 +18,13 @@ export class LoginDto {
   @IsOptional()
   @IsString()
   deviceId?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'OTP code nếu 2FA được bật',
+    example: '123456',
+  })
+  @IsOptional()
+  @IsString()
+  otp?: string;
 }

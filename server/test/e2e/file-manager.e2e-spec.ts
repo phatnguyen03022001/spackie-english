@@ -4,14 +4,23 @@ import request from 'supertest';
 import { AppModule } from '@/app.module';
 import { PrismaService } from '@database/prisma.service';
 import { RedisService } from '@infrastructure/redis/redis.service';
+import { MailService } from '@infrastructure/mail/mail.service';
 import { StorageService } from '@infrastructure/storage/storage.service';
+import { PusherService } from '@infrastructure/pusher/pusher.service';
 import {
+  createMockMailService,
   createMockRedisService,
   createMockStorageService,
+  createMockPusherService,
+  createMockQueue,
+  QUEUE_NAMES,
 } from './support/test-doubles';
+import { getQueueToken } from '@nestjs/bull';
 
 const mockRedisService = createMockRedisService();
+const mockMailService = createMockMailService();
 const mockStorageService = createMockStorageService();
+const mockPusherService = createMockPusherService();
 
 describe('FileManagerController (e2e)', () => {
   let app: INestApplication;
@@ -28,8 +37,22 @@ describe('FileManagerController (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useValue(mockRedisService)
+      .overrideProvider(MailService)
+      .useValue(mockMailService)
       .overrideProvider(StorageService)
       .useValue(mockStorageService)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.NOTIFICATION))
+      .useValue(createMockQueue())
+      .overrideProvider(getQueueToken(QUEUE_NAMES.AI_ENRICHMENT))
+      .useValue(createMockQueue())
+      .overrideProvider(getQueueToken(QUEUE_NAMES.MEDIA_ENRICHMENT))
+      .useValue(createMockQueue())
+      .overrideProvider(getQueueToken(QUEUE_NAMES.PAYMENT_WEBHOOK))
+      .useValue(createMockQueue())
+      .overrideProvider(getQueueToken(QUEUE_NAMES.FAILED_TTS))
+      .useValue(createMockQueue())
+      .overrideProvider(PusherService)
+      .useValue(mockPusherService)
       .compile();
 
     app = moduleFixture.createNestApplication();

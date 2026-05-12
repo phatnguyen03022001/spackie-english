@@ -5,7 +5,7 @@ import { Expose, Type } from 'class-transformer';
 import { PaginationMetaDto } from '@common/dto/pagination-response.dto';
 
 export class SuccessResponseDto<T = unknown> {
-  @ApiProperty({ example: true })
+  @ApiProperty({ type: Boolean, example: true })
   @Expose()
   readonly success = true as const;
 

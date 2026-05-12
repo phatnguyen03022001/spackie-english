@@ -17,6 +17,8 @@ import { LoggerModule } from '@common/logger/logger.module';
 
 import { OtpRepository } from '@modules/auth/repositories/otp.repository';
 import { AdminDeviceRepository } from '@modules/auth/repositories/admin-device.repository';
+import { TwoFactorService } from '@modules/auth/two-factor.service';
+import { Auth2faController } from '@modules/auth/auth-2fa.controller';
 
 @Module({
   imports: [
@@ -43,7 +45,7 @@ import { AdminDeviceRepository } from '@modules/auth/repositories/admin-device.r
     MailModule,
     LoggerModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, Auth2faController],
   providers: [
     AuthService,
     DeviceService,
@@ -52,7 +54,8 @@ import { AdminDeviceRepository } from '@modules/auth/repositories/admin-device.r
     AdminDeviceRepository,
     JwtStrategy,
     AuthListener,
+    TwoFactorService,
   ],
-  exports: [AuthService],
+  exports: [AuthService, TwoFactorService],
 })
 export class AuthModule {}

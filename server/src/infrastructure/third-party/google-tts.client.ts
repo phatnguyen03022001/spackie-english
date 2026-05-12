@@ -1,6 +1,8 @@
 // src/infrastructure/third-party/google-tts.client.ts
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { TTSConfigService } from '@config/services/tts-config.service';
+import { LoggerService } from '@common/logger/logger.service';
+import { BaseApiClient } from '@infrastructure/third-party/base.client';
 
 /**
  * Interface cho TTS client – abstraction để dễ mock trong test.
@@ -30,10 +32,20 @@ interface ITextToSpeechClient {
 
 @Injectable()
 export class GoogleTtsClient implements ITtsClient {
-  private readonly logger = new Logger(GoogleTtsClient.name);
+  private readonly logger: LoggerService;
   private client: ITextToSpeechClient | null = null;
+  private readonly retries: number;
+  private readonly retryDelay: number;
 
-  constructor(private config: TTSConfigService) {
+  constructor(
+    private config: TTSConfigService,
+    logger: LoggerService,
+  ) {
+    this.logger = logger;
+    this.logger.setContext(GoogleTtsClient.name);
+    this.retries = 3;
+    this.retryDelay = 1000;
+
     const apiKey = this.config.apiKey;
     if (apiKey) {
       // Dynamic import để tránh lỗi type từ @google-cloud/text-to-speech
@@ -63,38 +75,56 @@ export class GoogleTtsClient implements ITtsClient {
   async synthesize(text: string): Promise<Buffer | null> {
     if (!this.client) return null;
 
-    try {
-      const request = {
-        input: { text },
-        voice: {
-          languageCode: this.config.language,
-          name: this.config.voice,
-        },
-        audioConfig: {
-          audioEncoding: 'MP3' as const,
-          speakingRate: this.config.speed,
-        },
-      };
+    let lastError: Error | null = null;
 
-      const [response] = await this.client.synthesizeSpeech(request);
-      const audioContent = response?.audioContent;
+    for (let attempt = 1; attempt <= this.retries; attempt++) {
+      try {
+        const request = {
+          input: { text },
+          voice: {
+            languageCode: this.config.language,
+            name: this.config.voice,
+          },
+          audioConfig: {
+            audioEncoding: 'MP3' as const,
+            speakingRate: this.config.speed,
+          },
+        };
 
-      if (!audioContent) return null;
+        const [response] = await this.client.synthesizeSpeech(request);
+        const audioContent = response?.audioContent;
 
-      // Chuyển đổi Uint8Array thành Buffer an toàn
-      if (Buffer.isBuffer(audioContent)) {
-        return audioContent;
+        if (!audioContent) return null;
+
+        // Chuyển đổi Uint8Array thành Buffer an toàn
+        if (Buffer.isBuffer(audioContent)) {
+          return audioContent;
+        }
+        if (audioContent instanceof Uint8Array) {
+          return Buffer.from(audioContent);
+        }
+        // Nếu là string (base64) - rất hiếm
+        return null;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+
+        if (attempt < this.retries) {
+          const delay = this.retryDelay * attempt;
+          this.logger.warn(
+            `TTS attempt ${attempt}/${this.retries} failed for "${text}": ${lastError.message}. Retrying in ${delay}ms...`,
+          );
+          await this.delay(delay);
+        }
       }
-      if (audioContent instanceof Uint8Array) {
-        return Buffer.from(audioContent);
-      }
-      // Nếu là string (base64) - rất hiếm
-      return null;
-    } catch (err) {
-      this.logger.error(
-        `TTS failed for "${text}": ${err instanceof Error ? err.message : String(err)}`,
-      );
-      return null;
     }
+
+    this.logger.error(
+      `TTS failed for "${text}" after ${this.retries} attempts: ${lastError?.message}`,
+    );
+    return null;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

@@ -15,6 +15,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UserMapper } from '@modules/users/mappers/user.mapper';
 import { BusinessException } from '@common/filters/business.exception';
 import { Role, AuthProvider } from '@prisma/client';
+import { TwoFactorService } from '@modules/auth/two-factor.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { randomUUID } from 'crypto';
@@ -156,6 +157,14 @@ describe('AuthService', () => {
           provide: UserMapper,
           useValue: {
             toResponseDto: jest.fn().mockReturnValue(mockUserResponse),
+          },
+        },
+        {
+          provide: TwoFactorService,
+          useValue: {
+            generateSecret: jest.fn(),
+            verifyToken: jest.fn(),
+            generateRecoveryCodes: jest.fn(),
           },
         },
       ],

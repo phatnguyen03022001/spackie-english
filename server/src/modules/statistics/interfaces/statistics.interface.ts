@@ -3,6 +3,7 @@
 export interface IDashboardStats {
   totalCardsLearned: number;
   totalReviews: number;
+  totalMastered: number;
   totalListeningPractices: number;
   currentStreak: number;
   longestStreak: number;

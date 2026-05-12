@@ -94,11 +94,76 @@ export class DecksRepository {
     await this.prisma.deckCardMapping.deleteMany({ where: { deckId } });
   }
 
+  // Batch update sort order for deck card mappings
+  async batchUpdateSortOrder(
+    updates: Array<{ id: string; sortOrder: number }>,
+  ): Promise<void> {
+    if (updates.length === 0) return;
+    await this.prisma.$transaction(
+      updates.map(({ id, sortOrder }) =>
+        this.prisma.deckCardMapping.update({
+          where: { id },
+          data: { sortOrder },
+        }),
+      ),
+    );
+  }
+
+  // Find all mappings for a deck
+  async findMappingsByDeckId(
+    deckId: string,
+  ): Promise<Array<{ id: string; globalCardId: string; sortOrder: number }>> {
+    return this.prisma.deckCardMapping.findMany({
+      where: { deckId },
+      select: { id: true, globalCardId: true, sortOrder: true },
+    });
+  }
+
+  // Clone mappings from source deck to target deck
+  async cloneMappings(
+    sourceDeckId: string,
+    targetDeckId: string,
+  ): Promise<void> {
+    const mappings = await this.prisma.deckCardMapping.findMany({
+      where: { deckId: sourceDeckId },
+      select: { globalCardId: true, sortOrder: true },
+    });
+    if (mappings.length === 0) return;
+
+    await this.prisma.deckCardMapping.createMany({
+      data: mappings.map((m) => ({
+        deckId: targetDeckId,
+        globalCardId: m.globalCardId,
+        sortOrder: m.sortOrder,
+      })),
+    });
+  }
+
   // Chỉ dùng trong CardsModule hoặc job để cập nhật totalCards
   async incrementTotalCards(id: string, delta: number): Promise<void> {
     await this.prisma.deck.update({
       where: { id },
       data: { totalCards: { increment: delta } },
     });
+  }
+
+  // Get popular tags across all public decks
+  async getPopularTags(limit = 20): Promise<string[]> {
+    const decks = await this.prisma.deck.findMany({
+      where: { visibility: 'PUBLIC', deletedAt: null },
+      select: { tags: true },
+    });
+
+    const tagCount = new Map<string, number>();
+    for (const deck of decks) {
+      for (const tag of deck.tags) {
+        tagCount.set(tag, (tagCount.get(tag) || 0) + 1);
+      }
+    }
+
+    return [...tagCount.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([tag]) => tag);
   }
 }

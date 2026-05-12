@@ -126,7 +126,7 @@ describe('DeepSeekClient', () => {
                 role: 'assistant',
                 content: JSON.stringify({
                   vi: 'xin chào',
-                  ex: 'Hello, how are you? (Xin chào, bạn khỏe không?)',
+                  examples: ['Hello, how are you? (Xin chào, bạn khỏe không?)'],
                   pronounce: '/həˈloʊ/',
                   pos: 'interjection',
                   synonyms: 'hi, hey',
@@ -144,7 +144,7 @@ describe('DeepSeekClient', () => {
 
       expect(result).toEqual({
         vi: 'xin chào',
-        ex: 'Hello, how are you? (Xin chào, bạn khỏe không?)',
+        examples: ['Hello, how are you? (Xin chào, bạn khỏe không?)'],
         pronounce: '/həˈloʊ/',
         pos: 'interjection',
         synonyms: 'hi, hey',
@@ -169,7 +169,7 @@ describe('DeepSeekClient', () => {
 
       expect(result).toEqual({
         vi: 'raw response text',
-        ex: '',
+        examples: [],
         pronounce: '',
         pos: '',
         synonyms: '',

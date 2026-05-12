@@ -9,7 +9,13 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 import { AuthService } from '@modules/auth/auth.service';
 import { RegisterDto } from '@modules/auth/dto/register.dto';
 import { LoginDto } from '@modules/auth/dto/login.dto';
@@ -42,6 +48,15 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register new user' })
+  @ApiResponse({
+    status: 201,
+    description: 'Registration successful',
+    type: SuccessResponseDto<UserResponseDto>,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'VALIDATION_FAILED or EMAIL_ALREADY_EXISTS',
+  })
   async register(
     @Body() dto: RegisterDto,
   ): Promise<SuccessResponseDto<UserResponseDto>> {
@@ -53,6 +68,8 @@ export class AuthController {
   @Post('verify-email')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Verify email using OTP' })
+  @ApiResponse({ status: 204, description: 'Email verified successfully' })
+  @ApiResponse({ status: 400, description: 'INVALID_OTP or OTP_EXPIRED' })
   async verifyEmail(@Body() dto: VerifyEmailDto): Promise<void> {
     await this.authService.verifyEmail(dto);
   }
@@ -62,6 +79,8 @@ export class AuthController {
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: { limit: 3, ttl: 3600000 } })
   @ApiOperation({ summary: 'Resend verification OTP' })
+  @ApiResponse({ status: 202, description: 'Verification OTP sent' })
+  @ApiResponse({ status: 429, description: 'TOO_MANY_REQUESTS' })
   async resendVerification(
     @Body() dto: ResendVerificationDto,
   ): Promise<SuccessResponseDto<null>> {
@@ -76,6 +95,15 @@ export class AuthController {
   @ApiOperation({
     summary: 'Login with email/password (admin requires deviceId)',
   })
+  @ApiResponse({
+    status: 200,
+    description: 'Login successful, returns tokens and user',
+    type: SuccessResponseDto<AuthLoginResponse>,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'INVALID_CREDENTIALS or DEVICE_NOT_AUTHORIZED',
+  })
   async login(
     @Body() dto: LoginDto,
   ): Promise<SuccessResponseDto<AuthLoginResponse>> {
@@ -87,6 +115,8 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
+  @ApiResponse({ status: 200, description: 'Token refreshed' })
+  @ApiResponse({ status: 401, description: 'INVALID_REFRESH_TOKEN' })
   async refresh(
     @Body() dto: RefreshTokenDto,
   ): Promise<
@@ -100,6 +130,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Logout (revoke refresh token)' })
+  @ApiResponse({ status: 204, description: 'Logged out successfully' })
   async logout(@Body() dto: RefreshTokenDto): Promise<void> {
     await this.authService.logout(dto.refreshToken);
   }
@@ -107,6 +138,12 @@ export class AuthController {
   @Get('me')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile',
+    type: SuccessResponseDto<UserResponseDto>,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getProfile(
     @CurrentUser() user: RequestUser,
   ): Promise<SuccessResponseDto<UserResponseDto>> {
@@ -119,6 +156,12 @@ export class AuthController {
   @ApiBearerAuth()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Change password (requires old password)' })
+  @ApiResponse({ status: 204, description: 'Password changed' })
+  @ApiResponse({
+    status: 400,
+    description: 'INVALID_OLD_PASSWORD or VALIDATION_FAILED',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async changePassword(
     @CurrentUser() user: RequestUser,
     @Body() dto: ChangePasswordDto,
@@ -131,6 +174,11 @@ export class AuthController {
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: { limit: 3, ttl: 3600000 } })
   @ApiOperation({ summary: 'Request OTP to reset password' })
+  @ApiResponse({
+    status: 202,
+    description: 'If email exists, OTP has been sent',
+  })
+  @ApiResponse({ status: 429, description: 'TOO_MANY_REQUESTS' })
   async forgotPassword(
     @Body() dto: ForgotPasswordDto,
   ): Promise<SuccessResponseDto<null>> {
@@ -143,6 +191,8 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 5, ttl: 3600000 } })
   @ApiOperation({ summary: 'Reset password using OTP' })
+  @ApiResponse({ status: 204, description: 'Password reset successfully' })
+  @ApiResponse({ status: 400, description: 'INVALID_OTP or OTP_EXPIRED' })
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<void> {
     await this.authService.resetPassword(dto);
   }
@@ -151,6 +201,12 @@ export class AuthController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get list of authorized devices for admin' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of devices',
+    type: SuccessResponseDto<DeviceResponseDto>,
+  })
+  @ApiResponse({ status: 403, description: 'AUTH_INSUFFICIENT_PERMISSIONS' })
   async getDevices(
     @CurrentUser() user: RequestUser,
   ): Promise<SuccessResponseDto<DeviceResponseDto[]>> {
@@ -162,6 +218,12 @@ export class AuthController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Add a new authorized device' })
+  @ApiResponse({
+    status: 201,
+    description: 'Device added',
+    type: SuccessResponseDto<DeviceResponseDto>,
+  })
+  @ApiResponse({ status: 403, description: 'AUTH_INSUFFICIENT_PERMISSIONS' })
   async addDevice(
     @CurrentUser() user: RequestUser,
     @Body() dto: AddDeviceDto,
@@ -175,6 +237,10 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Remove an authorized device' })
+  @ApiParam({ name: 'deviceId', description: 'Device ID to remove' })
+  @ApiResponse({ status: 204, description: 'Device removed' })
+  @ApiResponse({ status: 403, description: 'AUTH_INSUFFICIENT_PERMISSIONS' })
+  @ApiResponse({ status: 404, description: 'DEVICE_NOT_FOUND' })
   async removeDevice(
     @CurrentUser() user: RequestUser,
     @Param('deviceId') deviceId: string,
@@ -187,6 +253,8 @@ export class AuthController {
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: { limit: 3, ttl: 3600000 } })
   @ApiOperation({ summary: 'Request OTP to authorize a new device for admin' })
+  @ApiResponse({ status: 202, description: 'OTP sent to your email' })
+  @ApiResponse({ status: 429, description: 'TOO_MANY_REQUESTS' })
   async requestDeviceOtp(
     @Body() dto: RequestDeviceOtpDto,
   ): Promise<SuccessResponseDto<null>> {
@@ -203,6 +271,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Verify OTP and login with new device' })
+  @ApiResponse({ status: 200, description: 'Device verified and logged in' })
+  @ApiResponse({ status: 400, description: 'INVALID_OTP or OTP_EXPIRED' })
   async verifyDevice(
     @Body() dto: VerifyDeviceOtpDto,
   ): Promise<SuccessResponseDto<AuthLoginResponse>> {
@@ -218,6 +288,8 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout from all devices' })
+  @ApiResponse({ status: 204, description: 'Logged out from all devices' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async logoutAll(@CurrentUser() user: RequestUser): Promise<void> {
     await this.authService.logoutAll(user.id);
   }

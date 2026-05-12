@@ -7,7 +7,9 @@ import { ICacheManager } from '@common/interfaces/cache-manager.interface';
 import { BusinessException } from '@common/filters/business.exception';
 import { CacheKeyBuilder } from '@common/utils/cache.util';
 import { StorageService } from '@infrastructure/storage/storage.service';
-import { PrismaService } from '@database/prisma.service';
+import { UploadFileUseCase } from '@modules/file-manager/use-cases/upload-file.use-case';
+import { DeleteFileUseCase } from '@modules/file-manager/use-cases/delete-file.use-case';
+import { FileManagerRepository } from '@modules/file-manager/file-manager.repository';
 
 @Injectable()
 export class UpdateCoverUseCase {
@@ -16,9 +18,11 @@ export class UpdateCoverUseCase {
   constructor(
     private readonly repository: DecksRepository,
     private readonly mapper: DeckMapper,
-    private readonly storageService: StorageService,
     @Inject('ICacheManager') private readonly cacheManager: ICacheManager,
-    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+    private readonly uploadFileUseCase: UploadFileUseCase,
+    private readonly deleteFileUseCase: DeleteFileUseCase,
+    private readonly fileManagerRepository: FileManagerRepository,
   ) {}
 
   async execute(
@@ -36,51 +40,50 @@ export class UpdateCoverUseCase {
       );
     }
 
-    // Upload new cover image with consistent publicId
-    const timestamp = Date.now();
-    const publicId = `decks/covers/${deckId}_${timestamp}`;
-    const uploadResult = await this.storageService.upload(
-      fileBuffer,
-      originalName,
-      { folder: 'decks/covers', publicId },
+    // Find existing cover file to delete later
+    const existingFiles = await this.fileManagerRepository.findByUserId(userId);
+    const existingCover = existingFiles.find(
+      (f) => f.refType === 'DECK_COVER' && f.refId === deckId,
     );
 
-    // Delete old cover if exists
-    if (deck.coverUrl) {
-      const oldPublicId = this.extractPublicIdFromUrl(deck.coverUrl);
-      if (oldPublicId) {
-        await this.storageService.delete(oldPublicId).catch((err: unknown) => {
-          // Log warning but don't fail the operation
-          this.logger.warn(
-            `Failed to delete old cover: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        });
+    // Upload via FileManager to create metadata record
+    const multerFile = {
+      buffer: fileBuffer,
+      originalname: originalName,
+      mimetype: 'image/jpeg',
+      size: fileBuffer.length,
+      fieldname: 'file',
+      encoding: '7bit',
+      destination: '',
+      filename: originalName,
+      path: '',
+      stream: null as unknown as NodeJS.ReadableStream,
+    } as Express.Multer.File;
+
+    const uploadedFile = await this.uploadFileUseCase.execute(
+      userId,
+      multerFile,
+      'DECK_COVER',
+      deckId,
+    );
+
+    // Delete old cover file if exists (directly via repository to bypass refCount check)
+    if (existingCover) {
+      try {
+        await this.storageService.delete(existingCover.publicId);
+        await this.fileManagerRepository.delete(existingCover.id);
+        await this.cacheManager.del(`file:quota:${userId}`);
+      } catch (err: unknown) {
+        this.logger.warn(
+          `Failed to delete old cover: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
 
+    // Update deck's coverUrl
     const updated = await this.repository.update(deckId, {
-      coverUrl: uploadResult.url,
+      coverUrl: uploadedFile.url,
     });
-
-    // Create File record for ownership tracking and quota
-    await this.prisma.file
-      .create({
-        data: {
-          userId,
-          url: uploadResult.url,
-          publicId: uploadResult.publicId,
-          resourceType: 'image',
-          mimeType: 'image/jpeg', // default, actual type from buffer if needed
-          sizeBytes: fileBuffer.length,
-          refType: 'DECK_COVER',
-          refId: deckId,
-        },
-      })
-      .catch((err: unknown) => {
-        this.logger.warn(
-          `Failed to create File record for deck cover: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
 
     // Invalidate cache
     await this.cacheManager.del(
@@ -88,10 +91,5 @@ export class UpdateCoverUseCase {
     );
 
     return this.mapper.toResponseDto(updated);
-  }
-
-  private extractPublicIdFromUrl(url: string): string | null {
-    const match = url.match(/\/upload\/v\d+\/(.+)\.[a-z]+$/);
-    return match ? match[1] : null;
   }
 }

@@ -11,7 +11,7 @@ import {
 import { DeckVisibility } from '@prisma/client';
 
 export class CreateDeckDto {
-  @ApiProperty({ example: 'My Vocabulary Deck' })
+  @ApiProperty({ example: 'My Vocabulary Deck', required: true })
   @IsString()
   @MaxLength(200)
   title!: string;

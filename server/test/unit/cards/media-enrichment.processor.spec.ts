@@ -11,6 +11,7 @@ import { PusherService } from '@infrastructure/pusher/pusher.service';
 import { RedisLockService } from '@infrastructure/redis/redis-lock.service';
 import { getQueueToken } from '@nestjs/bull';
 import { PUSHER_EVENTS } from '@common/constants/events.constants';
+import { FileManagerService } from '@modules/file-manager/file-manager.service';
 
 describe('MediaEnrichmentProcessor', () => {
   let processor: MediaEnrichmentProcessor;
@@ -34,6 +35,9 @@ describe('MediaEnrichmentProcessor', () => {
     imageUrl: null,
     audioUrl: null,
     errorMessage: null,
+    validated: false,
+    valid: null,
+    validationError: null,
     deletedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -116,6 +120,15 @@ describe('MediaEnrichmentProcessor', () => {
         {
           provide: getQueueToken('failed-tts'),
           useValue: mockFailedTtsQueue,
+        },
+        {
+          provide: FileManagerService,
+          useValue: {
+            uploadFromUrl: jest.fn().mockResolvedValue({
+              url: 'https://storage.com/cards/images/apple.jpg',
+              id: 'file-1',
+            }),
+          },
         },
       ],
     }).compile();

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from '@modules/users/users.controller';
 import { UsersService } from '@modules/users/users.service';
 import { UpdateAvatarUseCase } from '@modules/users/use-cases/update-avatar.use-case';
+import { UsersGdprService } from '@modules/users/users-gdpr.service';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
 import { RolesGuard } from '@common/guards/roles.guard';
 import { RequestUser } from '@common/interfaces/request-user.interface';
@@ -49,6 +50,13 @@ describe('UsersController', () => {
           },
         },
         { provide: UpdateAvatarUseCase, useValue: { execute: jest.fn() } },
+        {
+          provide: UsersGdprService,
+          useValue: {
+            exportData: jest.fn(),
+            hardDelete: jest.fn(),
+          },
+        },
       ],
     })
       .overrideGuard(JwtAuthGuard)

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { CardsDeckController } from '@modules/cards/cards-deck.controller';
 import { CardsGlobalController } from '@modules/cards/cards-global.controller';
 import { CardsService } from '@modules/cards/cards.service';
@@ -9,6 +10,8 @@ import { CreateCardAutoDto } from '@modules/cards/dto/create-card-auto.dto';
 import { CardListQueryDto } from '@modules/cards/dto/card-list-query.dto';
 import { CardResponseDto } from '@modules/cards/dto/card-response.dto';
 import { SuccessResponseDto, PaginationResponseDto } from '@common/dto';
+import { IdempotencyInterceptor } from '@common/interceptors/idempotency.interceptor';
+import { LoggerService } from '@common/logger/logger.service';
 
 describe('CardsDeckController', () => {
   let controller: CardsDeckController;
@@ -26,6 +29,13 @@ describe('CardsDeckController', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
   } as any;
+
+  const mockCacheManager = {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+    delPattern: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -47,6 +57,27 @@ describe('CardsDeckController', () => {
             execute: jest.fn(),
           },
         },
+        {
+          provide: 'ICacheManager',
+          useValue: mockCacheManager,
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockReturnValue(undefined),
+          },
+        },
+        {
+          provide: LoggerService,
+          useValue: {
+            setContext: jest.fn(),
+            debug: jest.fn(),
+            info: jest.fn(),
+            warn: jest.fn(),
+            error: jest.fn(),
+          },
+        },
+        IdempotencyInterceptor,
       ],
     }).compile();
 

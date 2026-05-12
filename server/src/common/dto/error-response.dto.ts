@@ -23,7 +23,7 @@ export class ErrorDetailDto {
 }
 
 export class ErrorResponseDto {
-  @ApiProperty({ example: false })
+  @ApiProperty({ type: Boolean, example: false })
   @Expose()
   // Sửa lỗi prefer-as-const: dùng readonly và gán giá trị trực tiếp
   readonly success = false as const;

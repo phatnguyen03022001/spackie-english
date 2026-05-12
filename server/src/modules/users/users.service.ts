@@ -5,15 +5,20 @@ import { UsersRepository } from '@modules/users/users.repository';
 import { UserMapper } from '@modules/users/mappers/user.mapper';
 import { CreateUserDto } from '@modules/users/dto/create-user.dto';
 import { UpdateUserDto } from '@modules/users/dto/update-user.dto';
+import { UpdateUserRoleDto } from '@modules/users/dto/update-user-role.dto';
 import { UserResponseDto } from '@modules/users/dto/user-response.dto';
 import { UserListQueryDto } from '@modules/users/dto/user-list-query.dto';
 import { BusinessException } from '@common/filters/business.exception';
 import { ERROR_CODES } from '@common/constants/error-codes.const';
 import { ICacheManager } from '@common/interfaces/cache-manager.interface';
 import { LoggerService } from '@common/logger/logger.service';
-import { hashPassword } from '@common/utils/crypto.util';
+import { hashPassword, comparePassword } from '@common/utils/crypto.util';
 import { CacheKeyBuilder, CACHE_TTL } from '@common/utils/cache.util';
 import { StorageService } from '@infrastructure/storage/storage.service';
+import { UploadFileUseCase } from '@modules/file-manager/use-cases/upload-file.use-case';
+import { DeleteFileUseCase } from '@modules/file-manager/use-cases/delete-file.use-case';
+import { FileManagerRepository } from '@modules/file-manager/file-manager.repository';
+import { PrismaService } from '@database/prisma.service';
 import { User } from '@prisma/client';
 import { RequestUser } from '@common/interfaces/request-user.interface';
 import { USER_EVENTS } from '@common/constants/events.constants';
@@ -30,6 +35,10 @@ export class UsersService {
     private readonly logger: LoggerService,
     private readonly storageService: StorageService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly uploadFileUseCase: UploadFileUseCase,
+    private readonly deleteFileUseCase: DeleteFileUseCase,
+    private readonly fileManagerRepository: FileManagerRepository,
+    private readonly prisma: PrismaService,
   ) {
     this.logger.setContext(UsersService.name);
     this.emitter = this.eventEmitter;
@@ -236,6 +245,12 @@ export class UsersService {
       );
     }
 
+    // Cascade soft delete to all decks owned by this user
+    await this.prisma.deck.updateMany({
+      where: { userId: id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+
     await this.usersRepository.softDelete(id);
     await this.invalidateUserCache(id);
     await this.invalidateListCache();
@@ -254,6 +269,21 @@ export class UsersService {
         'User not found',
       );
     }
+
+    // Cascade delete all files associated with this user
+    const files = await this.fileManagerRepository.findByUserId(id);
+    for (const file of files) {
+      try {
+        await this.storageService.delete(file.publicId);
+        await this.fileManagerRepository.delete(file.id);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `Failed to delete file ${file.id} during user hard delete: ${errorMessage}`,
+        );
+      }
+    }
+
     await this.usersRepository.hardDelete(id);
     await this.invalidateUserCache(id);
     await this.invalidateListCache();
@@ -306,29 +336,104 @@ export class UsersService {
     fileBuffer: Buffer,
     originalName: string,
   ): Promise<UserResponseDto> {
-    const uploadResult = await this.storageService.upload(
-      fileBuffer,
-      originalName,
-      { folder: 'avatars' },
+    // Find existing avatar file to delete later
+    const existingFiles = await this.fileManagerRepository.findByUserId(userId);
+    const existingAvatar = existingFiles.find((f) => f.refType === 'AVATAR');
+
+    // Upload via FileManager to create metadata record
+    const multerFile = {
+      buffer: fileBuffer,
+      originalname: originalName,
+      mimetype: 'image/jpeg',
+      size: fileBuffer.length,
+      fieldname: 'file',
+      encoding: '7bit',
+      destination: '',
+      filename: originalName,
+      path: '',
+      stream: null as unknown as NodeJS.ReadableStream,
+    } as Express.Multer.File;
+
+    const uploadedFile = await this.uploadFileUseCase.execute(
+      userId,
+      multerFile,
+      'AVATAR',
+      userId,
     );
 
-    const user = await this.usersRepository.findById(userId);
-    if (user?.avatarUrl) {
-      const publicId = this.extractPublicIdFromUrl(user.avatarUrl);
-      if (publicId) {
-        await this.storageService.delete(publicId).catch((err: unknown) => {
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          this.logger.warn(`Failed to delete old avatar: ${errorMessage}`);
-        });
+    // Delete old avatar file if exists (directly via repository to bypass refCount check)
+    if (existingAvatar) {
+      try {
+        await this.storageService.delete(existingAvatar.publicId);
+        await this.fileManagerRepository.delete(existingAvatar.id);
+        await this.cacheManager.del(`file:quota:${userId}`);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Failed to delete old avatar: ${errorMessage}`);
       }
     }
 
+    // Update user's avatarUrl
     const updated = await this.usersRepository.update(userId, {
-      avatarUrl: uploadResult.url,
+      avatarUrl: uploadedFile.url,
     });
     await this.invalidateUserCache(userId);
     await this.invalidateListCache();
     return this.userMapper.toResponseDto(updated);
+  }
+
+  async updateRole(
+    adminUserId: string,
+    targetUserId: string,
+    dto: UpdateUserRoleDto,
+  ): Promise<UserResponseDto> {
+    // Ngăn admin tự hạ role của chính mình
+    if (adminUserId === targetUserId && dto.role !== 'ADMIN') {
+      throw new BusinessException(
+        HttpStatus.FORBIDDEN,
+        'CANNOT_DEMOTE_SELF',
+        'You cannot demote yourself',
+      );
+    }
+
+    const user = await this.usersRepository.findById(targetUserId);
+    if (!user) {
+      throw new BusinessException(
+        HttpStatus.NOT_FOUND,
+        ERROR_CODES.USER_NOT_FOUND,
+        'User not found',
+      );
+    }
+
+    const updated = await this.usersRepository.update(targetUserId, {
+      role: dto.role,
+    });
+    await this.invalidateUserCache(targetUserId);
+    await this.invalidateListCache();
+    await this.invalidateEmailCache(user.email);
+    await this.invalidateUsernameCache(user.username);
+
+    this.emitter.emit(USER_EVENTS.UPDATED, { userId: targetUserId });
+    return this.userMapper.toResponseDto(updated);
+  }
+
+  async verifyPassword(userId: string, password: string): Promise<void> {
+    const user = await this.usersRepository.findById(userId);
+    if (!user || !user.passwordHash) {
+      throw new BusinessException(
+        HttpStatus.UNAUTHORIZED,
+        ERROR_CODES.INVALID_PASSWORD,
+        'Invalid password',
+      );
+    }
+    const match = await comparePassword(password, user.passwordHash);
+    if (!match) {
+      throw new BusinessException(
+        HttpStatus.UNAUTHORIZED,
+        ERROR_CODES.INVALID_PASSWORD,
+        'Invalid password',
+      );
+    }
   }
 
   async findByIdForAuth(id: string): Promise<User | null> {

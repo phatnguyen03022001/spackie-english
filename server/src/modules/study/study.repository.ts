@@ -30,7 +30,7 @@ export class StudyRepository {
       dueDate: Date;
       lastRating?: $Enums.CardRating;
       reviewCount: number;
-      recentReviews: any[];
+      recentReviews: Prisma.InputJsonValue[];
       lastReviewAt: Date;
     },
   ): Promise<CardProgress> {
@@ -81,7 +81,21 @@ export class StudyRepository {
     skip: number,
     take: number,
     deckId?: string,
-  ): Promise<{ items: CardProgress[]; total: number }> {
+  ): Promise<{
+    items: Array<
+      CardProgress & {
+        globalCard: {
+          id: string;
+          front: string;
+          back: string | null;
+          imageUrl: string | null;
+          audioUrl: string | null;
+          extras: unknown;
+        };
+      }
+    >;
+    total: number;
+  }> {
     const where: Prisma.CardProgressWhereInput = {
       userId,
       dueDate: { lte: new Date() },
@@ -130,6 +144,23 @@ export class StudyRepository {
         longestStreak,
         lastStudiedAt: new Date(),
         totalCardsLearned: { increment: 1 },
+      },
+    });
+  }
+
+  async findMany(where: { userId: string; globalCardId?: string }): Promise<
+    Array<{
+      globalCardId: string;
+      recentReviews: unknown;
+      globalCard?: { front: string } | null;
+    }>
+  > {
+    return this.prisma.cardProgress.findMany({
+      where,
+      select: {
+        globalCardId: true,
+        recentReviews: true,
+        globalCard: { select: { front: true } },
       },
     });
   }

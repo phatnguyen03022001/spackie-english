@@ -8,6 +8,7 @@ import { CardsRepository } from '../cards.repository';
 import { PixabayClient } from '@infrastructure/third-party/pixabay.client';
 import { GoogleTtsClient } from '@infrastructure/third-party/google-tts.client';
 import { StorageService } from '@infrastructure/storage/storage.service';
+import { FileManagerService } from '@modules/file-manager/file-manager.service';
 import { ICacheManager } from '@common/interfaces/cache-manager.interface';
 import { LoggerService } from '@common/logger/logger.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -23,8 +24,6 @@ import { extractKeywordForImage } from '../utils/card-media.util';
 const CARD_CACHE_TTL = 86400; // 24h
 const IMAGE_CACHE_TTL = 2592000; // 30 days
 const AUDIO_CACHE_TTL = 2592000; // 30 days
-const FETCH_TIMEOUT_MS = 5000; // 5s
-
 @Injectable()
 @Processor('media-enrichment')
 export class MediaEnrichmentProcessor {
@@ -33,6 +32,7 @@ export class MediaEnrichmentProcessor {
     private readonly pixabayClient: PixabayClient,
     private readonly ttsClient: GoogleTtsClient,
     private readonly storageService: StorageService,
+    private readonly fileManagerService: FileManagerService,
     @Inject('ICacheManager') private readonly cacheManager: ICacheManager,
     private readonly lockService: RedisLockService,
     private readonly logger: LoggerService,
@@ -69,7 +69,7 @@ export class MediaEnrichmentProcessor {
       // Step 1: Optional image + audio (parallel, non-blocking)
       const keyword = extractKeywordForImage(front);
       const [imageUrlResult, audioUrlResult] = await Promise.allSettled([
-        this.resolveImage(normalizedFront, keyword, cardId),
+        this.resolveImage(normalizedFront, keyword, cardId, userId),
         this.resolveAudio(normalizedFront, job),
       ]);
 
@@ -146,6 +146,7 @@ export class MediaEnrichmentProcessor {
     normalizedFront: string,
     keyword: string,
     cardId: string,
+    userId: string,
   ): Promise<string | undefined> {
     const cacheKey = `image:${normalizedFront}`;
     const cached = await this.cacheManager.get<string>(cacheKey);
@@ -159,23 +160,16 @@ export class MediaEnrichmentProcessor {
       return undefined;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      const response = await fetch(pixUrl, { signal: controller.signal });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const buffer = Buffer.from(await response.arrayBuffer());
-      const timestamp = Date.now();
-      const uploadResult = await this.storageService.upload(
-        buffer,
-        `${normalizedFront}.jpg`,
-        {
-          folder: 'cards/images',
-          publicId: `cards/images/${cardId}_${timestamp}`,
-        },
-      );
-      await this.cacheManager.set(cacheKey, uploadResult.url, IMAGE_CACHE_TTL);
-      return uploadResult.url;
+      // Use FileManagerService to upload from URL and create metadata record
+      const fileRecord = await this.fileManagerService.uploadFromUrl(pixUrl, {
+        ownerUserId: userId,
+        type: 'CARD_IMAGE',
+        entityId: cardId,
+        folder: 'cards/images',
+      });
+      await this.cacheManager.set(cacheKey, fileRecord.url, IMAGE_CACHE_TTL);
+      return fileRecord.url;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       this.logger.warn(
@@ -183,8 +177,6 @@ export class MediaEnrichmentProcessor {
       );
       await this.cacheManager.set(cacheKey, '__NO_IMAGE__', IMAGE_CACHE_TTL);
       return undefined;
-    } finally {
-      clearTimeout(timeoutId);
     }
   }
 

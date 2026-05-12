@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { LoggerService } from '@common/logger/logger.service';
 import { PaymentService } from '@infrastructure/payment/payment.service';
 import { PayosProvider } from '@infrastructure/payment/payos.provider';
-import { PaymentWebhookController } from '@infrastructure/payment/payment-webhook.controller';
 import { PaymentHealthIndicator } from '@infrastructure/payment/payment.health';
 import { RedisModule } from '@infrastructure/redis/redis.module';
 import { TerminusModule } from '@nestjs/terminus';
@@ -11,7 +10,9 @@ import { TerminusModule } from '@nestjs/terminus';
 @Global()
 @Module({
   imports: [RedisModule, TerminusModule],
-  controllers: [PaymentWebhookController],
+  // Webhook controller moved to modules/payment/payment-webhook.controller.ts
+  // The infrastructure controller is disabled to avoid route conflicts
+  controllers: [],
   providers: [
     {
       provide: 'PAYMENT_PROVIDER',
@@ -42,6 +43,6 @@ import { TerminusModule } from '@nestjs/terminus';
     PaymentService,
     PaymentHealthIndicator,
   ],
-  exports: [PaymentService, PaymentHealthIndicator],
+  exports: [PaymentService, PaymentHealthIndicator, 'PAYMENT_PROVIDER'],
 })
 export class PaymentModule {}

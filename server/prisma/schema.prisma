@@ -103,9 +103,20 @@ model User {
   listeningPractices ListeningPractice[]
   adminDevices       AdminDevice[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  twoFactorSecret  String? // encrypted AES-256-GCM
+  twoFactorEnabled Boolean  @default(false)
+  recoveryCodes    String[] @default([])
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  notifications  Notification[]
+  studySessions  StudySession[]
+  aiUsages       AiUsage[]
+  auditLogs      AuditLog[]
+  createdReports Report[]       @relation("reporter")
+  userFavorites  UserFavorite[]
+  userActivities UserActivity[]
 
   @@index([provider, providerId])
   @@index([role])
@@ -246,9 +257,10 @@ model Deck {
 
   cardMappings DeckCardMapping[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  userFavorites UserFavorite[]
 
   @@index([userId])
   @@index([visibility])
@@ -341,6 +353,137 @@ model CardProgress {
   @@index([userId, dueDate])
   @@index([globalCardId])
   @@map("card_progress")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: Notification (MỚI – in-app notifications)
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // "system", "study_reminder", "achievement", "payment"
+  title     String
+  body      String
+  data      Json     @default("{}") // extra metadata
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: StudySession (MỚI – study time tracking)
+// ─────────────────────────────────────────────
+
+model StudySession {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId             String    @db.ObjectId
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt          DateTime  @default(now())
+  endedAt            DateTime?
+  totalCardsReviewed Int       @default(0)
+  totalDurationMs    Int       @default(0) // milliseconds
+  createdAt          DateTime  @default(now())
+
+  @@index([userId, startedAt])
+  @@map("study_sessions")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: AiUsage (MỚI – AI usage tracking)
+// ─────────────────────────────────────────────
+
+model AiUsage {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operation    String // "meaning", "validation", "hint", "tts"
+  inputTokens  Int
+  outputTokens Int
+  cost         Float // in USD cents
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("ai_usages")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: AuditLog (MỚI – ghi lại hành động hệ thống)
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String  @db.ObjectId
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action   String // LOGIN, LOGOUT, CHANGE_ROLE, BAN, UNBAN, DELETE_USER, PAYMENT_SUCCESS, REFUND, DECK_DELETE, CARD_DELETE, ...
+  targetId String? // ID của đối tượng bị tác động
+  details  Json    @default("{}") // IP, userAgent, oldValue, newValue, ...
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: Report (MỚI – báo cáo vi phạm nội dung)
+// ─────────────────────────────────────────────
+
+model Report {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  reporterId  String    @db.ObjectId
+  reporter    User      @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType  String // "DECK", "CARD", "USER"
+  targetId    String
+  reason      String // SPAM, OFFENSIVE, COPYRIGHT, OTHER
+  description String?
+  status      String    @default("PENDING") // PENDING, RESOLVED, REJECTED
+  resolvedBy  String?   @db.ObjectId
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status])
+  @@index([targetType, targetId])
+  @@map("reports")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: UserFavorite (MỚI – bookmark deck)
+// ─────────────────────────────────────────────
+
+model UserFavorite {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deckId    String   @db.ObjectId
+  deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, deckId])
+  @@map("user_favorites")
+}
+
+// ─────────────────────────────────────────────
+// MODEL: UserActivity (MỚI – ghi lại hoạt động user)
+// ─────────────────────────────────────────────
+
+model UserActivity {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // VIEW_DECK, CREATE_CARD, REVIEW_CARD, LISTENING, EXPORT_DECK, ...
+  targetId  String? // deckId, cardId, ...
+  details   Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("user_activities")
 }
 
 // ─────────────────────────────────────────────

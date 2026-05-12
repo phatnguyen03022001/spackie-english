@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { UsersService } from '@modules/users/users.service';
 import { DeviceService } from '@modules/auth/device.service';
 import { EmailQuotaService } from '@modules/auth/email-quota.service';
+import { TwoFactorService } from '@modules/auth/two-factor.service';
 import { MailService } from '@infrastructure/mail/mail.service';
 import { ICacheManager } from '@common/interfaces/cache-manager.interface';
 import { LoggerService } from '@common/logger/logger.service';
@@ -22,6 +23,7 @@ import { ResetPasswordDto } from '@modules/auth/dto/reset-password.dto';
 import { AddDeviceDto } from '@modules/auth/dto/add-device.dto';
 import { DeviceResponseDto } from '@modules/auth/dto/device-response.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { USER_EVENTS } from '@common/constants/events.constants';
 
 import {
   AuthLoginResponse,
@@ -54,6 +56,7 @@ export class AuthService {
     private readonly userMapper: UserMapper,
     private readonly deviceService: DeviceService,
     private readonly emailQuotaService: EmailQuotaService,
+    private readonly twoFactorService: TwoFactorService,
     private readonly mailService: MailService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
@@ -70,6 +73,13 @@ export class AuthService {
       username: dto.email.split('@')[0],
       password: dto.password,
       displayName: dto.name,
+    });
+
+    // Emit event for StatisticsModule and other consumers
+    this.eventEmitter.emit(USER_EVENTS.CREATED, {
+      userId: user.id,
+      email: user.email,
+      displayName: user.displayName,
     });
 
     return user;
@@ -188,6 +198,29 @@ export class AuthService {
         'Invalid credentials',
       );
     }
+
+    // ── 2FA Check ──────────────────────────────────────────
+    if (user.twoFactorEnabled && user.twoFactorSecret) {
+      if (!dto.otp) {
+        // Return requiresOtp flag to let client know OTP is needed
+        throw new BusinessException(
+          HttpStatus.FORBIDDEN,
+          'TWO_FACTOR_REQUIRED',
+          'Two-factor authentication is required. Please provide OTP.',
+          { requires2fa: true },
+        );
+      }
+
+      const otpValid = await this.twoFactorService.verifyOtp(user.id, dto.otp);
+      if (!otpValid) {
+        throw new BusinessException(
+          HttpStatus.FORBIDDEN,
+          ERROR_CODES.TWO_FACTOR_INVALID_OTP,
+          'Invalid OTP or recovery code',
+        );
+      }
+    }
+    // ── End 2FA Check ─────────────────────────────────────
 
     const isAdmin = user.role === Role.ADMIN;
     let deviceId = dto.deviceId;

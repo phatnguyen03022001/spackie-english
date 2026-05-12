@@ -55,6 +55,32 @@ import { NotificationModule } from '@modules/notification/notification.module';
 import { PaymentModule as BusinessPaymentModule } from '@modules/payment/payment.module';
 import { JobsModule } from '@jobs/jobs.module';
 
+// New P0 modules
+import { SearchModule } from '@modules/search/search.module';
+import { StudySessionModule } from '@modules/study-session/study-session.module';
+import { AiModule } from '@modules/ai/ai.module';
+import { RecommendModule } from '@modules/recommend/recommend.module';
+
+// New P1 modules
+import { SessionModule } from '@modules/session/session.module';
+import { QueueMonitorModule } from '@modules/queue-monitor/queue-monitor.module';
+import { FeatureModule } from '@modules/feature/feature.module';
+import { PublicModule } from '@modules/public/public.module';
+
+// New P2 modules (production startup)
+import { AuditLogModule } from '@modules/audit-log/audit-log.module';
+import { ReportModule } from '@modules/report/report.module';
+import { FavoriteModule } from '@modules/favorite/favorite.module';
+import { ActivityModule } from '@modules/activity/activity.module';
+import { MetricsModule } from '@modules/metrics/metrics.module';
+import { AppInfoModule } from '@modules/app-info/app-info.module';
+import { BulkModule } from '@modules/bulk/bulk.module';
+
+// New P0 production modules
+import { RateLimitModule } from '@modules/rate-limit/rate-limit.module';
+import { PusherAuthModule } from '@modules/pusher-auth/pusher-auth.module';
+import { JobsHistoryModule } from '@modules/jobs/jobs.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -101,9 +127,6 @@ import { JobsModule } from '@jobs/jobs.module';
             'REDIS_URL is not defined. Bull queues require Redis.',
           );
         }
-        // Pass Redis URL directly as string to Bull.
-        // Bull's Queue constructor handles rediss:// (TLS) URLs natively via ioredis.
-        // We also pass redis options for retry/timeout control.
         return {
           redis: {
             host: new URL(redisUrl).hostname,
@@ -131,7 +154,7 @@ import { JobsModule } from '@jobs/jobs.module';
       },
     }),
     CommonModule,
-    // Luôn import ThrottlerModule (cấu hình bên trong throttler.config.ts sẽ quyết định có rule hay không)
+    // Luôn import ThrottlerModule
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule, RedisModule],
       inject: [ConfigService, RedisThrottlerStorage],
@@ -169,8 +192,29 @@ import { JobsModule } from '@jobs/jobs.module';
     NotificationModule,
     BusinessPaymentModule,
     JobsModule,
+    // New P0 modules
+    SearchModule,
+    StudySessionModule,
+    AiModule,
+    RecommendModule,
+    // New P1 modules
+    SessionModule,
+    QueueMonitorModule,
+    FeatureModule,
+    PublicModule,
+    // New P2 modules (production startup)
+    AuditLogModule,
+    ReportModule,
+    FavoriteModule,
+    ActivityModule,
+    MetricsModule,
+    AppInfoModule,
+    BulkModule,
+    // New production modules
+    RateLimitModule,
+    PusherAuthModule,
+    JobsHistoryModule,
   ],
-
   controllers: [AppController],
   providers: [AppService],
 })

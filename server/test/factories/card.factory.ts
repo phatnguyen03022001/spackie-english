@@ -16,6 +16,9 @@ export class CardFactory {
       extras: {},
       status: 'pending',
       errorMessage: null,
+      validated: false,
+      valid: null,
+      validationError: null,
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -33,5 +36,24 @@ export class CardFactory {
 
   static withFront(front: string, overrides: PartialCard = {}): GlobalCard {
     return CardFactory.create({ front, ...overrides });
+  }
+
+  static validated(overrides: PartialCard = {}): GlobalCard {
+    return CardFactory.create({
+      status: 'completed',
+      validated: true,
+      valid: true,
+      ...overrides,
+    });
+  }
+
+  static invalid(overrides: PartialCard = {}): GlobalCard {
+    return CardFactory.create({
+      status: 'failed',
+      validated: true,
+      valid: false,
+      validationError: 'Not a valid English word',
+      ...overrides,
+    });
   }
 }

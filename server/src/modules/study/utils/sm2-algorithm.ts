@@ -85,6 +85,7 @@ function ratingToQuality(rating: CardRating): number {
  */
 export function calculateStreak(
   currentStreak: number,
+  longestStreak: number,
   lastStudiedAt: Date | null,
 ): { currentStreak: number; longestStreak: number } {
   const today = new Date();
@@ -94,7 +95,7 @@ export function calculateStreak(
   yesterday.setDate(yesterday.getDate() - 1);
 
   if (!lastStudiedAt) {
-    return { currentStreak: 1, longestStreak: 1 };
+    return { currentStreak: 1, longestStreak: Math.max(longestStreak, 1) };
   }
 
   const lastStudy = new Date(lastStudiedAt);
@@ -104,7 +105,7 @@ export function calculateStreak(
     // Already studied today, keep streak
     return {
       currentStreak,
-      longestStreak: Math.max(currentStreak, currentStreak),
+      longestStreak: Math.max(longestStreak, currentStreak),
     };
   }
 
@@ -113,10 +114,10 @@ export function calculateStreak(
     const newStreak = currentStreak + 1;
     return {
       currentStreak: newStreak,
-      longestStreak: Math.max(newStreak, newStreak),
+      longestStreak: Math.max(longestStreak, newStreak),
     };
   }
 
   // Streak broken, reset to 1
-  return { currentStreak: 1, longestStreak: Math.max(1, 1) };
+  return { currentStreak: 1, longestStreak: Math.max(longestStreak, 1) };
 }

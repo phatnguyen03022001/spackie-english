@@ -5,12 +5,13 @@ import { DecksService } from '@modules/decks/decks.service';
 import { DecksRepository } from '@modules/decks/decks.repository';
 import { DeckMapper } from '@modules/decks/mappers/deck.mapper';
 import { UpdateCoverUseCase } from '@modules/decks/use-cases/update-cover.use-case';
+import { FileManagerModule } from '@modules/file-manager/file-manager.module';
 import { RedisModule } from '@infrastructure/redis/redis.module';
 import { StorageModule } from '@infrastructure/storage/storage.module';
 import { PrismaModule } from '@database/prisma.module';
 
 @Module({
-  imports: [RedisModule, StorageModule, PrismaModule],
+  imports: [RedisModule, StorageModule, PrismaModule, FileManagerModule],
   controllers: [DecksController],
   providers: [DecksService, DecksRepository, DeckMapper, UpdateCoverUseCase],
   exports: [DecksService, DecksRepository],

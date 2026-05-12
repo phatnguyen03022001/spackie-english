@@ -22,6 +22,8 @@ import {
   ApiTags,
   ApiOperation,
   ApiConsumes,
+  ApiResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import { CardsService } from './cards.service';
 import { UpdateCardDto } from './dto/update-card.dto';
@@ -42,6 +44,12 @@ export class CardsGlobalController {
 
   @Get(':cardId')
   @ApiOperation({ summary: 'Get GlobalCard detail (standalone)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Card detail',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({ status: 404, description: 'CARD_NOT_FOUND' })
   async findGlobalCard(
     @Param('cardId') cardId: string,
   ): Promise<SuccessResponseDto<CardResponseDto>> {
@@ -51,6 +59,13 @@ export class CardsGlobalController {
 
   @Patch(':cardId')
   @ApiOperation({ summary: 'Update GlobalCard (standalone)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Card updated',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({ status: 400, description: 'VALIDATION_FAILED' })
+  @ApiResponse({ status: 404, description: 'CARD_NOT_FOUND' })
   async updateGlobalCard(
     @CurrentUser() user: RequestUser,
     @Param('cardId') cardId: string,
@@ -64,6 +79,27 @@ export class CardsGlobalController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload image for a GlobalCard' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Card image (jpg, jpeg, png, gif, webp) - max 5MB',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Image uploaded',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'UNPROCESSABLE_ENTITY - invalid file type or size',
+  })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async uploadImage(
     @CurrentUser() user: RequestUser,
@@ -91,6 +127,15 @@ export class CardsGlobalController {
   @Delete(':cardId/image')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete image from a GlobalCard' })
+  @ApiResponse({
+    status: 200,
+    description: 'Image deleted',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'CARD_NOT_FOUND or IMAGE_NOT_FOUND',
+  })
   async deleteImage(
     @CurrentUser() user: RequestUser,
     @Param('cardId') cardId: string,
@@ -103,6 +148,27 @@ export class CardsGlobalController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload audio for a GlobalCard' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Card audio (mp3, wav, ogg, m4a) - max 10MB',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Audio uploaded',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'UNPROCESSABLE_ENTITY - invalid file type or size',
+  })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async uploadAudio(
     @CurrentUser() user: RequestUser,
@@ -130,6 +196,15 @@ export class CardsGlobalController {
   @Delete(':cardId/audio')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete audio from a GlobalCard' })
+  @ApiResponse({
+    status: 200,
+    description: 'Audio deleted',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'CARD_NOT_FOUND or AUDIO_NOT_FOUND',
+  })
   async deleteAudio(
     @CurrentUser() user: RequestUser,
     @Param('cardId') cardId: string,
@@ -141,6 +216,11 @@ export class CardsGlobalController {
   @Post(':cardId/ai-hint')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Generate AI hint for a GlobalCard' })
+  @ApiResponse({
+    status: 200,
+    description: 'AI hint generated',
+  })
+  @ApiResponse({ status: 404, description: 'CARD_NOT_FOUND' })
   async generateAiHint(
     @Param('cardId') cardId: string,
   ): Promise<SuccessResponseDto<{ hint: string }>> {
@@ -151,6 +231,12 @@ export class CardsGlobalController {
   @Post(':cardId/audio/generate')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Generate audio for a GlobalCard (lazy load)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Audio generated',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({ status: 404, description: 'CARD_NOT_FOUND' })
   async generateAudio(
     @CurrentUser() user: RequestUser,
     @Param('cardId') cardId: string,

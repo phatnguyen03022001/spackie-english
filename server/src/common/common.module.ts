@@ -12,7 +12,7 @@ import { TransformInterceptor } from '@common/interceptors/transform.interceptor
 import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
 import { RequestContextInterceptor } from '@common/interceptors/request-context.interceptor';
 import { CacheInterceptor } from '@common/interceptors/cache.interceptor';
-import { IdempotencyInterceptor } from '@common/interceptors/idempotency.interceptor';
+// import { IdempotencyInterceptor } from '@common/interceptors/idempotency.interceptor';
 
 // Filters
 import { HttpExceptionFilter } from '@common/filters/http-exception.filter';
@@ -35,7 +35,6 @@ import { LoggerService } from '@common/logger/logger.service';
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     { provide: APP_INTERCEPTOR, useClass: CacheInterceptor },
-    { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
 
     // Filter – đăng ký global
     { provide: APP_FILTER, useClass: HttpExceptionFilter },

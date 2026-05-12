@@ -5,13 +5,23 @@ import { AppModule } from '@/app.module';
 import { PrismaService } from '@database/prisma.service';
 import { RedisService } from '@infrastructure/redis/redis.service';
 import { MailService } from '@infrastructure/mail/mail.service';
+import { PusherService } from '@infrastructure/pusher/pusher.service';
+import { StorageService } from '@infrastructure/storage/storage.service';
 import {
   createMockMailService,
   createMockRedisService,
+  createMockPusherService,
+  createMockStorageService,
+  createMockQueue,
+  QUEUE_NAMES,
 } from './support/test-doubles';
+import { getQueueToken } from '@nestjs/bull';
 
 const mockRedisService = createMockRedisService();
 const mockMailService = createMockMailService();
+const mockPusherService = createMockPusherService();
+const mockStorageService = createMockStorageService();
+const mockQueue = createMockQueue();
 
 const randomEmail = (prefix: string) =>
   `${prefix}_${Date.now()}_${Math.random().toString(36).substring(7)}@test.com`;
@@ -31,6 +41,20 @@ describe('DecksModule (e2e)', () => {
       .useValue(mockRedisService)
       .overrideProvider(MailService)
       .useValue(mockMailService)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.NOTIFICATION))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.AI_ENRICHMENT))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.MEDIA_ENRICHMENT))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.PAYMENT_WEBHOOK))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.FAILED_TTS))
+      .useValue(mockQueue)
+      .overrideProvider(PusherService)
+      .useValue(mockPusherService)
+      .overrideProvider(StorageService)
+      .useValue(mockStorageService)
       .compile();
 
     app = moduleFixture.createNestApplication();

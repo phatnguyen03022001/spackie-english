@@ -1,11 +1,14 @@
-# Upgrade to 10/10 - Implementation Progress
+# Task Progress - Test Audit & Fix
 
-## Priority Order
-
-- [x] **2.1** Store `back` field in database (CardsModule)
-- [ ] **2.2** Unify media naming & integrate FileManager
-- [ ] **2.3** Add API versioning (URI)
-- [ ] **2.4** Implement cron jobs for cleanup
-- [ ] **2.5** Add DB retry policy for transient faults
-- [ ] **2.6** Validate `language` enum in Settings
-- [ ] **2.7** Minor cleanups
+- [x] Audit all existing test files and mock status
+- [x] Check all e2e tests properly mock MailService, PusherService, StorageService, RedisService, Bull queues
+- [ ] Fix broken unit tests (auth.service - missing TwoFactorService, users.controller - missing UsersGdprService, user.mapper - missing 2FA fields)
+- [ ] Add activity.service.spec.ts unit test
+- [ ] Add audit-log.service.spec.ts unit test
+- [ ] Add rate-limit.service.spec.ts unit test
+- [ ] Add recommend.service.spec.ts unit test
+- [ ] Add notification.processor.spec.ts unit test
+- [ ] Add two-factor.service.spec.ts unit test
+- [ ] Add users-gdpr.service.spec.ts unit test
+- [ ] Add health-dependencies.service.spec.ts unit test
+- [ ] Run all tests and verify they pass

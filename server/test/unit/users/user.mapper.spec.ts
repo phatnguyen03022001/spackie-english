@@ -24,6 +24,9 @@ describe('UserMapper', () => {
     lastStudiedAt: new Date('2024-01-01'),
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-02'),
+    twoFactorSecret: null,
+    twoFactorEnabled: false,
+    recoveryCodes: [],
     deletedAt: null,
   };
 

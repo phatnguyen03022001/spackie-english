@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GoogleTtsClient } from '@infrastructure/third-party/google-tts.client';
 import { TTSConfigService } from '@config/services/tts-config.service';
+import { LoggerService } from '@common/logger/logger.service';
 
 describe('GoogleTtsClient', () => {
   let client: GoogleTtsClient;
@@ -19,12 +20,21 @@ describe('GoogleTtsClient', () => {
       synthesizeSpeech: jest.fn(),
     };
 
+    const mockLogger = {
+      setContext: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         {
           provide: GoogleTtsClient,
           useFactory: () => {
-            const svc = new GoogleTtsClient(mockTtsConfig);
+            const svc = new GoogleTtsClient(mockTtsConfig, mockLogger as any);
             // Set client directly after construction (initClient won't run since apiKey is empty)
             (svc as any).client = mockTextToSpeechClient;
             return svc;

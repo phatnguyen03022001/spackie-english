@@ -12,6 +12,11 @@ import { DeepSeekClient } from '@infrastructure/third-party/deepseek.client';
 import { GoogleTtsClient } from '@infrastructure/third-party/google-tts.client';
 import { StorageService } from '@infrastructure/storage/storage.service';
 import { LoggerService } from '@common/logger/logger.service';
+import { WordValidatorClient } from '@infrastructure/third-party/word-validator.client';
+import { UploadFileUseCase } from '@modules/file-manager/use-cases/upload-file.use-case';
+import { DeleteFileUseCase } from '@modules/file-manager/use-cases/delete-file.use-case';
+import { FileManagerRepository } from '@modules/file-manager/file-manager.repository';
+import { PrismaService } from '@database/prisma.service';
 
 describe('CardsService', () => {
   let service: CardsService;
@@ -22,6 +27,7 @@ describe('CardsService', () => {
   let deepSeekClient: jest.Mocked<DeepSeekClient>;
   let storageService: jest.Mocked<StorageService>;
   let logger: jest.Mocked<LoggerService>;
+  let uploadFileUseCase: jest.Mocked<UploadFileUseCase>;
 
   const mockDeck = {
     id: 'deck1',
@@ -120,6 +126,36 @@ describe('CardsService', () => {
             log: jest.fn(),
           },
         },
+        {
+          provide: WordValidatorClient,
+          useValue: {
+            validateWord: jest.fn().mockResolvedValue({ isValid: true }),
+          },
+        },
+        {
+          provide: UploadFileUseCase,
+          useValue: { execute: jest.fn() },
+        },
+        {
+          provide: DeleteFileUseCase,
+          useValue: { execute: jest.fn() },
+        },
+        {
+          provide: FileManagerRepository,
+          useValue: {
+            create: jest.fn(),
+            findById: jest.fn(),
+            findByRef: jest.fn(),
+            findByUserId: jest.fn().mockResolvedValue([]),
+            delete: jest.fn(),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            $transaction: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -131,6 +167,7 @@ describe('CardsService', () => {
     deepSeekClient = module.get(DeepSeekClient);
     storageService = module.get(StorageService);
     logger = module.get(LoggerService);
+    uploadFileUseCase = module.get(UploadFileUseCase);
   });
 
   describe('createCardManual', () => {
@@ -164,6 +201,8 @@ describe('CardsService', () => {
         back: 'quả táo',
         extras: {},
         status: 'completed',
+        validated: true,
+        valid: true,
       });
       expect(repository.createMapping).toHaveBeenCalled();
       expect(decksRepository.incrementTotalCards).toHaveBeenCalledWith(
@@ -441,12 +480,15 @@ describe('CardsService', () => {
 
     it('should upload image and update card', async () => {
       repository.findGlobalCardById.mockResolvedValue(mockGlobalCard as any);
-      storageService.upload.mockResolvedValue({
+      uploadFileUseCase.execute.mockResolvedValue({
+        id: 'file-1',
         url: 'https://example.com/image.jpg',
         publicId: 'img1',
-        format: 'jpg',
-        size: 1000,
-      });
+        resourceType: 'image',
+        mimeType: 'image/jpeg',
+        sizeBytes: 1000,
+        createdAt: new Date(),
+      } as any);
       repository.updateGlobalCard.mockResolvedValue({
         ...mockGlobalCard,
         imageUrl: 'https://example.com/image.jpg',
@@ -460,7 +502,7 @@ describe('CardsService', () => {
         'image/jpeg',
       );
 
-      expect(storageService.upload).toHaveBeenCalled();
+      expect(uploadFileUseCase.execute).toHaveBeenCalled();
       expect(repository.updateGlobalCard).toHaveBeenCalledWith('card1', {
         imageUrl: 'https://example.com/image.jpg',
       });
@@ -493,12 +535,15 @@ describe('CardsService', () => {
   describe('uploadAudio', () => {
     it('should upload audio and update card', async () => {
       repository.findGlobalCardById.mockResolvedValue(mockGlobalCard as any);
-      storageService.upload.mockResolvedValue({
+      uploadFileUseCase.execute.mockResolvedValue({
+        id: 'file-2',
         url: 'https://example.com/audio.mp3',
         publicId: 'aud1',
-        format: 'mp3',
-        size: 5000,
-      });
+        resourceType: 'audio',
+        mimeType: 'audio/mpeg',
+        sizeBytes: 5000,
+        createdAt: new Date(),
+      } as any);
       repository.updateGlobalCard.mockResolvedValue({
         ...mockGlobalCard,
         audioUrl: 'https://example.com/audio.mp3',
@@ -512,7 +557,7 @@ describe('CardsService', () => {
         'audio/mpeg',
       );
 
-      expect(storageService.upload).toHaveBeenCalled();
+      expect(uploadFileUseCase.execute).toHaveBeenCalled();
       expect(repository.updateGlobalCard).toHaveBeenCalledWith('card1', {
         audioUrl: 'https://example.com/audio.mp3',
       });

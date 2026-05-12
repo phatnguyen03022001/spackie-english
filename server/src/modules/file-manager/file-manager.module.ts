@@ -26,6 +26,7 @@ import { LoggerModule } from '@common/logger/logger.module';
     UploadFileUseCase,
     DeleteFileUseCase,
     FileMapper,
+    FileManagerRepository,
   ],
 })
 export class FileManagerModule {}

@@ -8,6 +8,7 @@ import { CardMapper } from '@modules/cards/mappers/card.mapper';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BusinessException } from '@common/filters/business.exception';
 import { getQueueToken } from '@nestjs/bull';
+import { WordValidatorClient } from '@infrastructure/third-party/word-validator.client';
 
 describe('CreateCardAutoUseCase', () => {
   let useCase: CreateCardAutoUseCase;
@@ -34,6 +35,9 @@ describe('CreateCardAutoUseCase', () => {
     audioUrl: null,
     extras: {},
     status: 'pending',
+    validated: false,
+    valid: null,
+    validationError: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -94,6 +98,12 @@ describe('CreateCardAutoUseCase', () => {
         {
           provide: getQueueToken('ai-enrichment'),
           useValue: aiEnrichmentQueue,
+        },
+        {
+          provide: WordValidatorClient,
+          useValue: {
+            validateWord: jest.fn().mockResolvedValue({ isValid: true }),
+          },
         },
       ],
     }).compile();
@@ -192,6 +202,8 @@ describe('CreateCardAutoUseCase', () => {
         audioUrl: null,
         extras: {},
         status: 'pending',
+        validated: true,
+        valid: true,
       });
       expect(cardsRepository.createMapping).toHaveBeenCalled();
       expect(decksRepository.incrementTotalCards).toHaveBeenCalledWith(

@@ -37,6 +37,41 @@ export const PAYMENT_EVENTS = {
   SUBSCRIPTION_CANCELLED: 'subscription.cancelled',
 } as const;
 
+export const NOTIFICATION_EVENTS = {
+  CREATED: 'notification.created',
+  READ: 'notification.read',
+  DELETED: 'notification.deleted',
+} as const;
+
+export const STUDY_SESSION_EVENTS = {
+  STARTED: 'study.session.started',
+  ENDED: 'study.session.ended',
+} as const;
+
+export const AI_EVENTS = {
+  USAGE_RECORDED: 'ai.usage.recorded',
+  QUOTA_UPDATED: 'ai.quota.updated',
+} as const;
+
+export const AUDIT_LOG_EVENTS = {
+  CREATED: 'audit_log.created',
+} as const;
+
+export const REPORT_EVENTS = {
+  CREATED: 'report.created',
+  RESOLVED: 'report.resolved',
+  REJECTED: 'report.rejected',
+} as const;
+
+export const FAVORITE_EVENTS = {
+  ADDED: 'favorite.added',
+  REMOVED: 'favorite.removed',
+} as const;
+
+export const ACTIVITY_EVENTS = {
+  CREATED: 'activity.created',
+} as const;
+
 // Pusher events sent to client
 export const PUSHER_EVENTS = {
   CARD_MEANING_READY: 'card.meaning.ready',

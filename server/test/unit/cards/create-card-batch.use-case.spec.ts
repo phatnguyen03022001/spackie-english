@@ -7,6 +7,7 @@ import { LoggerService } from '@common/logger/logger.service';
 import { getQueueToken } from '@nestjs/bull';
 import { BusinessException } from '@common/filters/business.exception';
 import { CreateCardBatchDto } from '@modules/cards/dto/create-card-batch.dto';
+import { WordValidatorClient } from '@infrastructure/third-party/word-validator.client';
 
 describe('CreateCardBatchUseCase', () => {
   let useCase: CreateCardBatchUseCase;
@@ -40,6 +41,9 @@ describe('CreateCardBatchUseCase', () => {
     imageUrl: null,
     audioUrl: null,
     errorMessage: null,
+    validated: false,
+    valid: null,
+    validationError: null,
     deletedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -90,6 +94,12 @@ describe('CreateCardBatchUseCase', () => {
         {
           provide: getQueueToken('ai-enrichment'),
           useValue: mockAiEnrichmentQueue,
+        },
+        {
+          provide: WordValidatorClient,
+          useValue: {
+            validateWord: jest.fn().mockResolvedValue({ isValid: true }),
+          },
         },
       ],
     }).compile();
@@ -158,6 +168,8 @@ describe('CreateCardBatchUseCase', () => {
         back: null,
         extras: {},
         status: 'pending',
+        validated: true,
+        valid: true,
       });
       expect(cardsRepository.createMappingsBatch).toHaveBeenCalledWith(
         'deck-1',

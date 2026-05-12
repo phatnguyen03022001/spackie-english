@@ -1,5 +1,5 @@
 // src/modules/study/study.service.ts
-import { Injectable, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpStatus, Inject } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { StudyRepository } from '@modules/study/study.repository';
 import { DueCardsQueryDto } from '@modules/study/dto/due-cards-query.dto';
@@ -11,9 +11,14 @@ import {
 } from '@modules/study/utils/sm2-algorithm';
 import { BusinessException } from '@common/filters/business.exception';
 import { ERROR_CODES } from '@common/constants/error-codes.const';
-import { STUDY_EVENTS } from '@common/constants/events.constants';
+import {
+  STUDY_EVENTS,
+  PUSHER_EVENTS,
+} from '@common/constants/events.constants';
 import { PusherService } from '@infrastructure/pusher/pusher.service';
-import { PUSHER_EVENTS } from '@common/constants/events.constants';
+import { Prisma } from '@prisma/client';
+import { ICacheManager } from '@common/interfaces/cache-manager.interface';
+import { CacheKeyBuilder, CACHE_TTL } from '@common/utils/cache.util';
 import type {
   IDueCardItem,
   IStreakInfo,
@@ -25,12 +30,25 @@ export class StudyService {
     private readonly repository: StudyRepository,
     private readonly eventEmitter: EventEmitter2,
     private readonly pusherService: PusherService,
+    @Inject('ICacheManager') private readonly cacheManager: ICacheManager,
   ) {}
 
   async getDueCards(
     userId: string,
     query: DueCardsQueryDto,
   ): Promise<{ data: IDueCardItem[]; total: number }> {
+    const cacheKey = CacheKeyBuilder.userResource(
+      'study',
+      'session',
+      userId,
+      query.deckId || 'all',
+    );
+    const cached = await this.cacheManager.get<{
+      data: IDueCardItem[];
+      total: number;
+    }>(cacheKey);
+    if (cached) return cached;
+
     const skip = (query.page - 1) * query.limit;
     const { items, total } = await this.repository.findDueCards(
       userId,
@@ -41,12 +59,11 @@ export class StudyService {
 
     const data: IDueCardItem[] = items.map((item) => ({
       globalCardId: item.globalCardId,
-      front: (item as any).globalCard?.front ?? '',
-      back: (item as any).globalCard?.back,
-      imageUrl: (item as any).globalCard?.imageUrl,
-      audioUrl: (item as any).globalCard?.audioUrl,
-      extras:
-        ((item as any).globalCard?.extras as Record<string, unknown>) ?? {},
+      front: item.globalCard?.front ?? '',
+      back: item.globalCard?.back ?? undefined,
+      imageUrl: item.globalCard?.imageUrl ?? undefined,
+      audioUrl: item.globalCard?.audioUrl ?? undefined,
+      extras: (item.globalCard?.extras as Record<string, unknown>) ?? {},
       progress: {
         easeFactor: item.easeFactor,
         interval: item.interval,
@@ -57,7 +74,9 @@ export class StudyService {
       },
     }));
 
-    return { data, total };
+    const result = { data, total };
+    await this.cacheManager.set(cacheKey, result, CACHE_TTL.REAL_TIME);
+    return result;
   }
 
   async submitReview(
@@ -101,7 +120,10 @@ export class StudyService {
       dueDate: sm2Result.dueDate,
       lastRating: dto.rating,
       reviewCount: progress.reviewCount + 1,
-      recentReviews: [...progress.recentReviews, recentReview as any],
+      recentReviews: [
+        ...(progress.recentReviews as Prisma.InputJsonValue[]),
+        recentReview as Prisma.InputJsonValue,
+      ],
       lastReviewAt: new Date(),
     });
 
@@ -109,6 +131,7 @@ export class StudyService {
     const streakInfo = await this.repository.getUserStreak(userId);
     const newStreak = calculateStreak(
       streakInfo.currentStreak,
+      streakInfo.longestStreak,
       streakInfo.lastStudiedAt,
     );
     await this.repository.updateUserStreak(
@@ -116,6 +139,9 @@ export class StudyService {
       newStreak.currentStreak,
       newStreak.longestStreak,
     );
+
+    // Invalidate cache for this user's study session
+    await this.cacheManager.delPattern(`study:session:${userId}:*`);
 
     // Get remaining due count
     const dueCountRemaining = await this.repository.countDueCards(userId);
@@ -168,11 +194,59 @@ export class StudyService {
     return { dueCount };
   }
 
+  async getReviewHistory(
+    userId: string,
+    cardId?: string,
+  ): Promise<
+    Array<{
+      reviewedAt: string;
+      rating: string;
+      easeFactor: number;
+      interval: number;
+      reviewDurationMs: number;
+      cardId: string;
+      cardFront?: string;
+    }>
+  > {
+    const where: { userId: string; globalCardId?: string } = { userId };
+    if (cardId) where.globalCardId = cardId;
+
+    const progresses = await this.repository.findMany(where);
+    const history = progresses.flatMap((progress) => {
+      const reviews =
+        (progress.recentReviews as Array<{
+          reviewedAt: string;
+          rating: string;
+          easeFactor: number;
+          interval: number;
+          reviewDurationMs: number;
+        }>) || [];
+      return reviews.map((review) => ({
+        ...review,
+        cardId: progress.globalCardId,
+        cardFront: progress.globalCard?.front,
+      }));
+    });
+
+    // Sort by reviewedAt desc
+    history.sort(
+      (a, b) =>
+        new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime(),
+    );
+    return history;
+  }
+
   async getStreak(userId: string): Promise<IStreakInfo> {
+    const cacheKey = CacheKeyBuilder.userResource('study', 'streak', userId);
+    const cached = await this.cacheManager.get<IStreakInfo>(cacheKey);
+    if (cached) return cached;
+
     const streakInfo = await this.repository.getUserStreak(userId);
-    return {
+    const result: IStreakInfo = {
       currentStreak: streakInfo.currentStreak,
       longestStreak: streakInfo.longestStreak,
     };
+    await this.cacheManager.set(cacheKey, result, CACHE_TTL.MEDIUM);
+    return result;
   }
 }

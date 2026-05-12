@@ -68,4 +68,28 @@ export class ListeningRepository {
 
     return { totalPractices, averageScore, averageAccuracy, totalDuration };
   }
+
+  async getCardStats(
+    userId: string,
+    cardId: string,
+  ): Promise<{ attempts: number; averageScore: number; bestScore: number }> {
+    const practices = await this.prisma.listeningPractice.findMany({
+      where: { userId, globalCardId: cardId },
+      select: { score: true },
+    });
+
+    if (practices.length === 0) {
+      return { attempts: 0, averageScore: 0, bestScore: 0 };
+    }
+
+    const scores = practices.map((p) => p.score ?? 0);
+    const totalScore = scores.reduce((sum, s) => sum + s, 0);
+    const bestScore = Math.max(...scores);
+
+    return {
+      attempts: practices.length,
+      averageScore: Math.round(totalScore / practices.length),
+      bestScore,
+    };
+  }
 }

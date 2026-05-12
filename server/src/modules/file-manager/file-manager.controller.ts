@@ -21,6 +21,8 @@ import {
   ApiOperation,
   ApiConsumes,
   ApiBody,
+  ApiResponse,
+  ApiParam,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
@@ -73,6 +75,15 @@ export class FileManagerController {
       },
     },
   })
+  @ApiResponse({
+    status: 201,
+    description: 'File uploaded',
+    type: SuccessResponseDto<FileResponseDto>,
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'UNPROCESSABLE_ENTITY - invalid file type or size',
+  })
   async upload(
     @UploadedFile(
       new ParseFilePipeBuilder()
@@ -96,6 +107,9 @@ export class FileManagerController {
   @UseGuards(FileOwnershipGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a file' })
+  @ApiParam({ name: 'fileId', description: 'File ID' })
+  @ApiResponse({ status: 200, description: 'File deleted' })
+  @ApiResponse({ status: 404, description: 'FILE_NOT_FOUND' })
   async delete(
     @Param('fileId') fileId: string,
     @CurrentUser() user: RequestUser,
@@ -107,6 +121,13 @@ export class FileManagerController {
   @Get(':fileId')
   @UseGuards(FileOwnershipGuard)
   @ApiOperation({ summary: 'Get file metadata' })
+  @ApiParam({ name: 'fileId', description: 'File ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'File metadata',
+    type: SuccessResponseDto<FileResponseDto>,
+  })
+  @ApiResponse({ status: 404, description: 'FILE_NOT_FOUND' })
   async findOne(
     @Param('fileId') fileId: string,
   ): Promise<SuccessResponseDto<FileResponseDto>> {
@@ -117,6 +138,9 @@ export class FileManagerController {
   @Get(':fileId/signed-url')
   @UseGuards(FileOwnershipGuard)
   @ApiOperation({ summary: 'Get signed URL for private file' })
+  @ApiParam({ name: 'fileId', description: 'File ID' })
+  @ApiResponse({ status: 200, description: 'Signed URL generated' })
+  @ApiResponse({ status: 404, description: 'FILE_NOT_FOUND' })
   async getSignedUrl(
     @Param('fileId') fileId: string,
     @CurrentUser() user: RequestUser,

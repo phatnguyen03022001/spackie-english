@@ -10,6 +10,7 @@ import { CreateDeckDto } from '@modules/decks/dto/create-deck.dto';
 import { UpdateDeckDto } from '@modules/decks/dto/update-deck.dto';
 import { DeckListQueryDto } from '@modules/decks/dto/deck-list-query.dto';
 import { StorageService } from '@infrastructure/storage/storage.service';
+import { PrismaService } from '@database/prisma.service';
 
 describe('DecksService', () => {
   let service: DecksService;
@@ -91,6 +92,17 @@ describe('DecksService', () => {
         { provide: 'ICacheManager', useValue: mockCacheManager },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: StorageService, useValue: mockStorageService },
+        {
+          provide: PrismaService,
+          useValue: {
+            deckCardMapping: {
+              findMany: jest.fn(),
+              update: jest.fn(),
+              updateMany: jest.fn(),
+            },
+            $transaction: jest.fn(),
+          },
+        },
       ],
     }).compile();
 

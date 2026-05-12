@@ -16,6 +16,7 @@ import { CreateCardBatchUseCase } from './use-cases/create-card-batch.use-case';
 import { AiEnrichmentProcessor } from './processors/ai-enrichment.processor';
 import { MediaEnrichmentProcessor } from './processors/media-enrichment.processor';
 import { DecksModule } from '@modules/decks/decks.module';
+import { FileManagerModule } from '@modules/file-manager/file-manager.module';
 import { RedisModule } from '@infrastructure/redis/redis.module';
 import { StorageModule } from '@infrastructure/storage/storage.module';
 import { ThirdPartyModule } from '@infrastructure/third-party/third-party.module';
@@ -24,6 +25,7 @@ import { LoggerModule } from '@common/logger/logger.module';
 @Module({
   imports: [
     DecksModule,
+    FileManagerModule,
     RedisModule,
     StorageModule,
     ThirdPartyModule,

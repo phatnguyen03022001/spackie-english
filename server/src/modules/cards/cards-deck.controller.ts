@@ -10,10 +10,18 @@ import {
   Query,
   Headers,
   UseGuards,
+  UseInterceptors,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiHeader,
+  ApiExtraModels,
+} from '@nestjs/swagger';
 import { CardsService } from './cards.service';
 import { CreateCardAutoUseCase } from './use-cases/create-card-auto.use-case';
 import { CreateCardDto } from './dto/create-card.dto';
@@ -29,9 +37,11 @@ import { SuccessResponseDto, PaginationResponseDto } from '@common/dto';
 import { CacheTTL } from '@common/decorators/cache-ttl.decorator';
 import { CACHE_TTL } from '@common/utils/cache.util';
 import { Throttle } from '@nestjs/throttler';
+import { IdempotencyInterceptor } from '@common/interceptors/idempotency.interceptor';
 
 @ApiTags('Cards in Deck')
 @ApiBearerAuth()
+@ApiExtraModels(PaginationResponseDto)
 @Controller('decks/:deckId/cards')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CardsDeckController {
@@ -41,12 +51,30 @@ export class CardsDeckController {
   ) {}
 
   @Post()
+  @UseInterceptors(IdempotencyInterceptor)
   @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    description:
+      'Unique key to prevent duplicate card creation (UUID v4 recommended)',
+    required: false,
+  })
   @ApiOperation({ summary: 'Create a new card (manual) in a deck' })
+  @ApiResponse({
+    status: 201,
+    description: 'Card created',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'VALIDATION_FAILED or INVALID_WORD',
+  })
+  @ApiResponse({ status: 409, description: 'CARD_ALREADY_IN_DECK' })
   async createManual(
     @CurrentUser() user: RequestUser,
     @Param('deckId') deckId: string,
     @Body() dto: CreateCardDto,
+    @Headers('Idempotency-Key') _idempotencyKey?: string,
   ): Promise<SuccessResponseDto<CardResponseDto>> {
     const card = await this.cardsService.createCardManual(user.id, deckId, dto);
     return new SuccessResponseDto(card, 'Card created');
@@ -57,6 +85,18 @@ export class CardsDeckController {
   @ApiOperation({
     summary: 'Auto-create card with enrichment (Global Vocabulary)',
   })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    description: 'Required idempotency key to prevent duplicate card creation',
+    required: true,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Card auto-created with enrichment',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({ status: 400, description: 'VALIDATION_FAILED' })
+  @ApiResponse({ status: 409, description: 'CARD_ALREADY_IN_DECK' })
   async createAuto(
     @CurrentUser() user: RequestUser,
     @Param('deckId') deckId: string,
@@ -75,6 +115,13 @@ export class CardsDeckController {
   @Get()
   @CacheTTL(CACHE_TTL.LIST)
   @ApiOperation({ summary: 'List cards in a deck' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of cards',
+    type: PaginationResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({ status: 403, description: 'DECK_PRIVATE' })
+  @ApiResponse({ status: 404, description: 'DECK_NOT_FOUND' })
   async findAll(
     @CurrentUser() user: RequestUser,
     @Param('deckId') deckId: string,
@@ -90,6 +137,12 @@ export class CardsDeckController {
 
   @Get(':cardId')
   @ApiOperation({ summary: 'Get GlobalCard detail (within deck context)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Card detail',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({ status: 404, description: 'CARD_NOT_FOUND' })
   async findOne(
     @Param('cardId') cardId: string,
   ): Promise<SuccessResponseDto<CardResponseDto>> {
@@ -99,6 +152,13 @@ export class CardsDeckController {
 
   @Patch(':cardId')
   @ApiOperation({ summary: 'Update GlobalCard front/back' })
+  @ApiResponse({
+    status: 200,
+    description: 'Card updated',
+    type: SuccessResponseDto<CardResponseDto>,
+  })
+  @ApiResponse({ status: 400, description: 'VALIDATION_FAILED' })
+  @ApiResponse({ status: 404, description: 'CARD_NOT_FOUND' })
   async update(
     @CurrentUser() user: RequestUser,
     @Param('cardId') cardId: string,
@@ -111,6 +171,9 @@ export class CardsDeckController {
   @Delete(':cardId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Remove a card from a deck (delete mapping)' })
+  @ApiResponse({ status: 200, description: 'Card removed from deck' })
+  @ApiResponse({ status: 403, description: 'DECK_NOT_OWNED' })
+  @ApiResponse({ status: 404, description: 'CARD_NOT_FOUND' })
   async delete(
     @CurrentUser() user: RequestUser,
     @Param('deckId') deckId: string,

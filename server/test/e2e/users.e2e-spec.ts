@@ -6,11 +6,16 @@ import { PrismaService } from '@database/prisma.service';
 import { RedisService } from '@infrastructure/redis/redis.service';
 import { MailService } from '@infrastructure/mail/mail.service';
 import { StorageService } from '@infrastructure/storage/storage.service';
+import { PusherService } from '@infrastructure/pusher/pusher.service';
 import {
   createMockMailService,
   createMockRedisService,
   createMockStorageService,
+  createMockPusherService,
+  createMockQueue,
+  QUEUE_NAMES,
 } from './support/test-doubles';
+import { getQueueToken } from '@nestjs/bull';
 
 // Helper tạo email ngẫu nhiên
 const randomEmail = (prefix: string) =>
@@ -19,6 +24,8 @@ const randomEmail = (prefix: string) =>
 const mockRedisService = createMockRedisService();
 const mockMailService = createMockMailService();
 const mockStorageService = createMockStorageService();
+const mockPusherService = createMockPusherService();
+const mockQueue = createMockQueue();
 
 describe('UsersController (e2e)', () => {
   let app: INestApplication;
@@ -41,6 +48,18 @@ describe('UsersController (e2e)', () => {
       .useValue(mockMailService)
       .overrideProvider(StorageService)
       .useValue(mockStorageService)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.NOTIFICATION))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.AI_ENRICHMENT))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.MEDIA_ENRICHMENT))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.PAYMENT_WEBHOOK))
+      .useValue(mockQueue)
+      .overrideProvider(getQueueToken(QUEUE_NAMES.FAILED_TTS))
+      .useValue(mockQueue)
+      .overrideProvider(PusherService)
+      .useValue(mockPusherService)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -402,6 +421,75 @@ describe('UsersController (e2e)', () => {
         where: { id: userId },
         data: { isBanned: false },
       });
+    });
+
+    it('should cascade soft delete to related data (decks, cards, files)', async () => {
+      // Create a user with decks and cards
+      const cascadeEmail = randomEmail('cascade');
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: cascadeEmail,
+          password: 'Cascade123!',
+          name: 'Cascade User',
+        })
+        .expect(201);
+      await prisma.user.update({
+        where: { email: cascadeEmail },
+        data: { isVerified: true },
+      });
+      const cascadeLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: cascadeEmail, password: 'Cascade123!' })
+        .expect(200);
+      const cascadeToken = cascadeLogin.body.data.accessToken;
+
+      // Create a deck
+      const deckRes = await request(app.getHttpServer())
+        .post('/decks')
+        .set('Authorization', `Bearer ${cascadeToken}`)
+        .send({ title: 'Cascade Test Deck', visibility: 'PRIVATE' })
+        .expect(201);
+      const cascadeDeckId = deckRes.body.data.id;
+
+      // Create a card in the deck (use a real English word to pass WordValidator)
+      await request(app.getHttpServer())
+        .post(`/decks/${cascadeDeckId}/cards`)
+        .set('Authorization', `Bearer ${cascadeToken}`)
+        .send({ front: 'apple', back: 'quả táo' })
+        .expect(201);
+
+      // Soft delete the user
+      await request(app.getHttpServer())
+        .delete('/users/me')
+        .set('Authorization', `Bearer ${cascadeToken}`)
+        .expect(200);
+
+      // Verify user is soft deleted
+      const deletedUser = await prisma.user.findUnique({
+        where: { email: cascadeEmail },
+      });
+      expect(deletedUser?.deletedAt).not.toBeNull();
+
+      // Verify decks are also soft deleted (cascade)
+      const deletedDeck = await prisma.deck.findUnique({
+        where: { id: cascadeDeckId },
+      });
+      expect(deletedDeck?.deletedAt).not.toBeNull();
+
+      // Verify deck card mappings still exist (they don't have deletedAt, but deck is soft-deleted)
+      const mappings = await prisma.deckCardMapping.findMany({
+        where: { deckId: cascadeDeckId },
+      });
+      // Mappings should still exist since only the deck is soft-deleted
+      expect(mappings.length).toBeGreaterThan(0);
+
+      // Cleanup
+      await prisma.deckCardMapping.deleteMany({
+        where: { deckId: cascadeDeckId },
+      });
+      await prisma.deck.deleteMany({ where: { id: cascadeDeckId } });
+      await prisma.user.deleteMany({ where: { email: cascadeEmail } });
     });
   });
 

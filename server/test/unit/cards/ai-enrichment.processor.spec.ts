@@ -35,7 +35,7 @@ describe('AiEnrichmentProcessor', () => {
 
   const mockMeaning = {
     vi: 'quả táo',
-    ex: 'I eat an apple every day.',
+    examples: ['I eat an apple every day.'],
     pronounce: '/ˈæp.əl/',
     pos: 'noun',
     synonyms: 'fruit',
@@ -51,6 +51,9 @@ describe('AiEnrichmentProcessor', () => {
     imageUrl: null,
     audioUrl: null,
     errorMessage: null,
+    validated: false,
+    valid: null,
+    validationError: null,
     deletedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -187,7 +190,7 @@ describe('AiEnrichmentProcessor', () => {
       cacheManager.get.mockResolvedValue(null);
       deepSeekClient.chatShort.mockResolvedValue({
         vi: 'quả táo',
-        ex: '',
+        examples: [],
         pronounce: '',
         pos: '',
         synonyms: '',

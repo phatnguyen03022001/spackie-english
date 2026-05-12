@@ -4,7 +4,6 @@ import { NestFactory } from '@nestjs/core';
 import { RequestMethod, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -12,6 +11,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from '@/app.module';
 import { GlobalValidationPipe } from '@/common/pipes/validation.pipe';
 import { requestIdMiddleware } from '@/common/middleware/request-id.middleware';
+import { setupSwagger } from '@/swagger.config';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -53,17 +53,16 @@ async function bootstrap() {
   const swaggerPath = configService.get<string>('app.swagger.path') ?? 'docs';
 
   if (isSwaggerEnabled) {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle(configService.get<string>('app.swagger.title') ?? 'Spackie API')
-      .setDescription(
+    setupSwagger(app, {
+      title:
+        configService.get<string>('app.swagger.title') ?? 'Spackie English API',
+      description:
         configService.get<string>('app.swagger.description') ??
-          'API Description',
-      )
-      .setVersion(configService.get<string>('app.swagger.version') ?? '1.0')
-      .addBearerAuth()
-      .build();
-    const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup(swaggerPath, app, document, { useGlobalPrefix: true });
+        'Spackie English Backend Documentation',
+      version: configService.get<string>('app.swagger.version') ?? '1.0.0',
+      path: swaggerPath,
+      prefix,
+    });
   }
 
   // CORS

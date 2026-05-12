@@ -9,6 +9,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BusinessException } from '@common/filters/business.exception';
 import { ERROR_CODES } from '@common/constants/error-codes.const';
 import { USER_EVENTS } from '@common/constants/events.constants';
+import { UploadFileUseCase } from '@modules/file-manager/use-cases/upload-file.use-case';
+import { DeleteFileUseCase } from '@modules/file-manager/use-cases/delete-file.use-case';
+import { FileManagerRepository } from '@modules/file-manager/file-manager.repository';
+import { PrismaService } from '@database/prisma.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -18,6 +22,8 @@ describe('UsersService', () => {
   let storageService: jest.Mocked<StorageService>;
   let logger: jest.Mocked<LoggerService>;
   let eventEmitter: jest.Mocked<EventEmitter2>;
+  let uploadFileUseCase: jest.Mocked<UploadFileUseCase>;
+  let fileManagerRepository: jest.Mocked<FileManagerRepository>;
 
   const mockUser = {
     id: 'user123',
@@ -48,46 +54,67 @@ describe('UsersService', () => {
     username: 'test',
   };
 
-  beforeEach(async () => {
-    const mockUsersRepository = {
-      findById: jest.fn(),
-      findByEmail: jest.fn(),
-      findByUsername: jest.fn(),
-      update: jest.fn(),
-      softDelete: jest.fn(),
-      ban: jest.fn(),
-      unban: jest.fn(),
-      findAll: jest.fn(),
-      create: jest.fn(),
-      hardDelete: jest.fn(),
-    };
-    const mockCacheManager = {
-      get: jest.fn(),
-      set: jest.fn(),
-      del: jest.fn(),
-      delPattern: jest.fn(),
-      reset: jest.fn(),
-      ping: jest.fn(),
-    };
-    const mockStorage = {
-      upload: jest.fn(),
-      delete: jest.fn().mockResolvedValue(undefined),
-      ping: jest.fn(),
-      getSignedUrl: jest.fn(),
-    };
-    const mockLogger = {
-      setContext: jest.fn(),
-      warn: jest.fn(),
-      log: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-    };
-    const mockEventEmitter = { emit: jest.fn() };
-    const mockMapper = {
-      toResponseDto: jest.fn().mockReturnValue(mockUserResponse),
-      toResponseDtoList: jest.fn().mockReturnValue([mockUserResponse]),
-    };
+  const mockUsersRepository = {
+    findById: jest.fn(),
+    findByEmail: jest.fn(),
+    findByUsername: jest.fn(),
+    update: jest.fn(),
+    softDelete: jest.fn(),
+    ban: jest.fn(),
+    unban: jest.fn(),
+    findAll: jest.fn(),
+    create: jest.fn(),
+    hardDelete: jest.fn(),
+  };
 
+  const mockCacheManager = {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+    delPattern: jest.fn(),
+    reset: jest.fn(),
+    ping: jest.fn(),
+  };
+
+  const mockStorage = {
+    upload: jest.fn(),
+    delete: jest.fn().mockResolvedValue(undefined),
+    ping: jest.fn(),
+    getSignedUrl: jest.fn(),
+  };
+
+  const mockLogger = {
+    setContext: jest.fn(),
+    warn: jest.fn(),
+    log: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  };
+
+  const mockEventEmitter = { emit: jest.fn() };
+
+  const mockMapper = {
+    toResponseDto: jest.fn().mockReturnValue(mockUserResponse),
+    toResponseDtoList: jest.fn().mockReturnValue([mockUserResponse]),
+  };
+
+  const mockPrismaService = {
+    user: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+    },
+    deck: {
+      updateMany: jest.fn(),
+    },
+    $transaction: jest.fn(),
+  };
+
+  beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -97,6 +124,25 @@ describe('UsersService', () => {
         { provide: 'ICacheManager', useValue: mockCacheManager },
         { provide: LoggerService, useValue: mockLogger },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        {
+          provide: UploadFileUseCase,
+          useValue: { execute: jest.fn() },
+        },
+        {
+          provide: DeleteFileUseCase,
+          useValue: { execute: jest.fn() },
+        },
+        {
+          provide: FileManagerRepository,
+          useValue: {
+            findByUserId: jest.fn().mockResolvedValue([]),
+            delete: jest.fn(),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
       ],
     }).compile();
 
@@ -107,6 +153,8 @@ describe('UsersService', () => {
     storageService = module.get(StorageService);
     logger = module.get(LoggerService);
     eventEmitter = module.get(EventEmitter2);
+    uploadFileUseCase = module.get(UploadFileUseCase);
+    fileManagerRepository = module.get(FileManagerRepository);
   });
 
   afterEach(() => {
@@ -574,13 +622,24 @@ describe('UsersService', () => {
     const fileBuffer = Buffer.from('avatar-data');
     const originalName = 'avatar.jpg';
 
+    const mockUploadedFile = {
+      id: 'file123',
+      url: 'https://example.com/avatars/new.jpg',
+      publicId: 'avatars/new',
+      format: 'jpg',
+      size: 100,
+      userId: 'user123',
+      refType: 'AVATAR',
+      refId: 'user123',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    beforeEach(() => {
+      uploadFileUseCase.execute.mockResolvedValue(mockUploadedFile as any);
+    });
+
     it('should upload new avatar and update user', async () => {
-      storageService.upload.mockResolvedValue({
-        url: 'https://example.com/avatars/new.jpg',
-        publicId: 'avatars/new',
-        format: 'jpg',
-        size: 100,
-      });
       usersRepository.findById.mockResolvedValue(mockUser as any);
       usersRepository.update.mockResolvedValue({
         ...mockUser,
@@ -595,10 +654,11 @@ describe('UsersService', () => {
         originalName,
       );
 
-      expect(storageService.upload).toHaveBeenCalledWith(
-        fileBuffer,
-        originalName,
-        { folder: 'avatars' },
+      expect(uploadFileUseCase.execute).toHaveBeenCalledWith(
+        'user123',
+        expect.objectContaining({ originalname: originalName }),
+        'AVATAR',
+        'user123',
       );
       expect(usersRepository.update).toHaveBeenCalledWith('user123', {
         avatarUrl: 'https://example.com/avatars/new.jpg',
@@ -613,12 +673,9 @@ describe('UsersService', () => {
         ...mockUser,
         avatarUrl: 'https://example.com/upload/v12345/old_avatar.jpg',
       };
-      storageService.upload.mockResolvedValue({
-        url: 'https://example.com/avatars/new.jpg',
-        publicId: 'avatars/new',
-        format: 'jpg',
-        size: 100,
-      });
+      fileManagerRepository.findByUserId.mockResolvedValue([
+        { id: 'old-file-id', publicId: 'old_avatar', refType: 'AVATAR' } as any,
+      ]);
       usersRepository.findById.mockResolvedValue(userWithAvatar as any);
       usersRepository.update.mockResolvedValue({
         ...userWithAvatar,
@@ -637,12 +694,9 @@ describe('UsersService', () => {
         ...mockUser,
         avatarUrl: 'https://example.com/upload/v12345/old_avatar.jpg',
       };
-      storageService.upload.mockResolvedValue({
-        url: 'https://example.com/avatars/new.jpg',
-        publicId: 'avatars/new',
-        format: 'jpg',
-        size: 100,
-      });
+      fileManagerRepository.findByUserId.mockResolvedValue([
+        { id: 'old-file-id', publicId: 'old_avatar', refType: 'AVATAR' } as any,
+      ]);
       usersRepository.findById.mockResolvedValue(userWithAvatar as any);
       usersRepository.update.mockResolvedValue({
         ...userWithAvatar,
@@ -659,12 +713,7 @@ describe('UsersService', () => {
     });
 
     it('should work if user has no existing avatar', async () => {
-      storageService.upload.mockResolvedValue({
-        url: 'https://example.com/avatars/new.jpg',
-        publicId: 'avatars/new',
-        format: 'jpg',
-        size: 100,
-      });
+      fileManagerRepository.findByUserId.mockResolvedValue([]);
       usersRepository.findById.mockResolvedValue(mockUser as any);
       usersRepository.update.mockResolvedValue({
         ...mockUser,
